@@ -182,7 +182,7 @@ DEFAULT_CFG = {
                "fault_temperature_C": 75.0, "warn_temperature_C": 60.0,
                "max_velocity_rps": 500.0},
     "plate": {"nominal_sps": 1000},
-    "shot": {"pre_ms": 200, "post_ms": 600, "src": "fz_rise", "level": 5.0},
+    "shot": {"pre_ms": 200, "post_ms": 1500, "src": "fz_rise", "level": 5.0},
 }
 
 
