@@ -6,4 +6,4 @@
                 or: from stringpot import StringPot; sp.poll(); sp.dy
 
 Per boot (plate_setup.sh does it):  sudo dtoverlay rotary-encoder pin_a=5 pin_b=6 relative_axis=1 steps-per-period=4
-Recalibrate from the laptop:  python3 ~/testRobot/stringcal/stringcal.py  -> http://localhost:8090
+Recalibrate from the laptop:  python3 ~/quadruped-dog/testStand/software/laptop/stringcal/stringcal.py  -> http://localhost:8090

@@ -233,7 +233,7 @@ Pi needed `sudo ./plate_setup.sh` this boot (CLKIN was off) — done; redo after
 **Restart after a crash**
 ```
 ssh mdyesley@myesley 'cd ~/scale && sudo ./plate_setup.sh'   # only if the Pi rebooted
-cd ~/testRobot && python3 dash.py                            # then "Cart is … mm" once
+cd ~/quadruped-dog/testStand/software/laptop && python3 dash.py                            # then "Cart is … mm" once
 python3 monitor.py --telemetry 127.0.0.1:9871                # read-only, OR step.py (not both)
 ```
 
@@ -414,7 +414,7 @@ often it happens.
 
 ```
  Pi "myesley" (192.168.86.54, mdyesley)          Laptop (192.168.86.34)
- ADS131M08 + 4x 1 kg cells ─┐                    testRobot/dash.py :8080  <- browser
+ ADS131M08 + 4x 1 kg cells ─┐                    laptop/dash.py :8080  <- browser
  string pot (quadrature,    │ ~/scale/platelog ──UDP──> :9870
    GPIO5/6) ────────────────┤   (C++, 1 kSPS)    step.py / monitor.py --telemetry :9871
                             └─ full-rate CSV     logs/merged-*.csv, shot-*.csv
@@ -422,7 +422,7 @@ often it happens.
 
 Once per Pi boot (needs sudo): `ssh mdyesley@myesley 'cd ~/scale && sudo ./plate_setup.sh'`
 
-### Programs (laptop `~/testRobot/`)
+### Programs (laptop `~/quadruped-dog/testStand/software/laptop/`)
 
 | file | role |
 |---|---|
@@ -460,7 +460,7 @@ is `plate_off_spread` (the jitter), which is what the UI shows.
 ### Start-up
 
 ```bash
-cd ~/testRobot
+cd ~/quadruped-dog/testStand/software/laptop
 python3 dash.py                                  # ssh-starts platelog on the Pi
 python3 monitor.py --telemetry 127.0.0.1:9871    # read-only, motors free
 python3 step.py --telemetry 127.0.0.1:9871 --vel 5 --accel 5 --dwell 2   # LIVE
