@@ -6,3 +6,4 @@ __pycache__/
 server.log
 pi/scale/platelog
 pi/scale/logs/
+.idea/
