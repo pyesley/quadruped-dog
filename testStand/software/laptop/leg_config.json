@@ -41,7 +41,7 @@
   "shot": {
     "pre_ms": 200.0,
     "post_ms": 1500.0,
-    "src": "fz_rise",
+    "src": "motor_move",
     "level": 5.0
   },
   "leg": {
