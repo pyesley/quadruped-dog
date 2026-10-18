@@ -13,8 +13,11 @@ if [ "$1" = "release" ]; then
     exit 0
 fi
 
-if pinctrl get 4 | grep -q GPCLK0; then
-    echo "CLKIN already running on GPIO4"
+# Always (re)program the clock: GPIO4 can read as GPCLK0 after boot without running at
+# the ADC's 8.065 MHz, so checking the pin function is not enough.  Reprogramming
+# stops the clock for a moment, which would upset a running platelog -- skip then.
+if pgrep -x platelog >/dev/null; then
+    echo "platelog is running -- leaving CLKIN alone (stop platelog first to reprogram it)"
 else
     python3 clkin.py
 fi
