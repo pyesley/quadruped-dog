@@ -1,0 +1,8 @@
+# recordings and runtime files
+laptop/logs/
+__pycache__/
+*.pyc
+*.bak*
+server.log
+pi/scale/platelog
+pi/scale/logs/

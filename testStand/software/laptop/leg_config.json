@@ -1,0 +1,55 @@
+{
+  "_comment": "Dashboard config. Rewritten by the Zero-angles button and the one-shot controls; hand-edit gear_ratio / label / sign / leg here.",
+  "joints": [
+    {
+      "id": 2,
+      "label": "hip",
+      "gear_ratio": 9.0,
+      "zero_rev": 0.0,
+      "sign": 1,
+      "offset_deg": 0.0
+    },
+    {
+      "id": 1,
+      "label": "knee",
+      "gear_ratio": 9.0,
+      "zero_rev": 0.0,
+      "sign": 1,
+      "offset_deg": 0.0
+    }
+  ],
+  "limits": {
+    "max_current_A": 12.0,
+    "warn_current_A": 10.0,
+    "max_voltage_V": 31.0,
+    "flux_brake_margin_V": 3.0,
+    "min_voltage_V": 21.0,
+    "fault_temperature_C": 75.0,
+    "warn_temperature_C": 60.0,
+    "max_velocity_rps": 500.0,
+    "max_regen_power_W": 50.0
+  },
+  "plate": {
+    "nominal_sps": 1000,
+    "cop_zero": [
+      0.0,
+      0.0,
+      0.0,
+      0.0
+    ]
+  },
+  "shot": {
+    "pre_ms": 200.0,
+    "post_ms": 1500.0,
+    "src": "fz_rise",
+    "level": 5.0
+  },
+  "leg": {
+    "_comment": "ODRI module v1.1: 9:1 belt, 160 mm segments. Press 'Zero angles' with the leg FOLDED: hip=0 knee=0 there, rising to hip=90 knee=180 fully extended. The knee reading is the included angle between the links, so hip height above the floor = 2*segment_mm*sin(knee/2) + foot_offset_mm. foot_offset_mm is the cylinder on the foot. knee_offset_deg is 0 because the links fold flat (they run in parallel planes). joints[0] is the ROOT.",
+    "segment_mm": 160.0,
+    "enabled": true,
+    "knee_offset_deg": 0.0,
+    "foot_offset_mm": 15.4,
+    "foot_radius_mm": 15.4
+  }
+}

@@ -1,0 +1,86 @@
+{
+ "_comment": "[Fz N, Tx N*mm, Ty N*mm] = A @ (f - f_tare), f = platelog per-cell N (f0..f3 in the feed). Plate frame: origin centre, x along the 200 mm length (template right), y across (template up). CoP = (Tx/Fz, Ty/Fz).",
+ "date": "2026-10-03 22:22",
+ "g": 9.80665,
+ "A": [
+  [
+   0.9878893219624286,
+   1.005079581422105,
+   1.0034442715915062,
+   0.9862540121318301
+  ],
+  [
+   100.43736486127722,
+   105.01844723424377,
+   -99.34841341938521,
+   -103.92949579235177
+  ],
+  [
+   -37.02587201773635,
+   38.95973531132895,
+   41.02635070341036,
+   -34.959256625654945
+  ]
+ ],
+ "chan_corner": "DBAC",
+ "chan_pos_mm": [
+  [
+   101.6686410394231,
+   -37.47977753639948
+  ],
+  [
+   104.48769348756574,
+   38.7628363280489
+  ],
+  [
+   -99.0074050269023,
+   40.88552983449772
+  ],
+  [
+   -105.37802078767086,
+   -35.446503837372504
+  ]
+ ],
+ "chan_gain": [
+  0.9878893219624286,
+  1.005079581422105,
+  1.0034442715915062,
+  0.9862540121318301
+ ],
+ "physical_fit": {
+  "corners": "ABDC",
+  "gain_w": [
+   -0.7001856434222177,
+   2.974162227596011,
+   -0.7883031181439382,
+   2.53278730652465
+  ],
+  "fz_rms_g": 98.5962998353577,
+  "cop_rms_mm": 23.93860448124898
+ },
+ "models": {
+  "general": {
+   "fz_rms_g": 1.095847124966542,
+   "cop_rms_mm": 3.352099118491115
+  },
+  "physical": {
+   "fz_rms_g": 105.36447585613759,
+   "cop_rms_mm": 22.742057064181424
+  },
+  "used": "general"
+ },
+ "loo_fz_rms_g": 1.095847124966542,
+ "loo_fz_rms_pct_ge100g": 0.4225369267810176,
+ "loo_cop_rms_x_mm": 1.9485005927224597,
+ "loo_cop_rms_y_mm": 2.727620563852152,
+ "sum_gain_err_pct": 0.4757921019833713,
+ "n": 35,
+ "session": "/home/pyesley/testRobot/platecal/session-20261003-215518.json",
+ "f_empty_last": [
+  5.089715,
+  -3.972025,
+  3.2030250000000002,
+  -4.554475
+ ],
+ "_comment_f_empty": "per-cell f with the plate EMPTY at the end of the calibration run; dash.py subtracts it (as cop_zero) until the next 'Tare plate' re-zeros platelog"
+}

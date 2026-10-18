@@ -1,0 +1,130 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>String-pot Calibration</title>
+<style>
+:root{--bg:#f7f7f5;--card:#fff;--ink:#1b1b1a;--ink2:#5c5c58;--mute:#8d8d87;--line:#e3e2dd;
+ --acc:#2a6fdb;--fit:#1b1b1a;--bad:#c4372b;--ok:#2d8a4e;--warn:#b7791f}
+@media (prefers-color-scheme:dark){:root{--bg:#141413;--card:#1e1e1c;--ink:#ecebe6;--ink2:#a9a8a1;
+ --mute:#76756f;--line:#33332f;--acc:#6aa0ff;--fit:#ecebe6;--bad:#ff7a6b;--ok:#5cc985;--warn:#e7b04b}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 system-ui,sans-serif}
+main{max-width:1150px;margin:0 auto;padding:16px;display:grid;gap:14px;grid-template-columns:minmax(0,380px) minmax(0,1fr)}
+@media (max-width:820px){main{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+h1{font-size:18px;margin:0 0 2px}h2{font-size:13px;margin:0 0 8px;color:var(--ink2);font-weight:600;text-transform:uppercase;letter-spacing:.04em}
+.count{font:600 54px/1.1 ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.sub{color:var(--ink2);font-size:13px}
+.prompt{font-size:20px;font-weight:600;margin:10px 0;padding:10px 12px;border-radius:8px;background:color-mix(in srgb,var(--acc) 12%,transparent)}
+.prompt.err{background:color-mix(in srgb,var(--bad) 14%,transparent);color:var(--bad)}
+form{display:flex;gap:8px}input{flex:1;min-width:0;font:600 22px ui-monospace,monospace;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--bg);color:var(--ink)}
+button{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.pri{background:var(--acc);border-color:var(--acc);color:#fff}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:13px}
+td,th{padding:3px 6px;text-align:right;border-bottom:1px solid var(--line)}th{color:var(--ink2);font-weight:500}
+td button{padding:0 7px;font-size:12px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 12px;font-variant-numeric:tabular-nums}
+.kv div:nth-child(odd){color:var(--ink2)}
+.flag{color:var(--warn)}
+svg{width:100%;height:auto;display:block}
+.ax{stroke:var(--line)}.tk{fill:var(--mute);font-size:11px}
+#tip{position:fixed;pointer-events:none;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font-size:12px;display:none}
+.right{display:grid;gap:14px;align-content:start}
+</style></head><body>
+<main>
+<div style="display:grid;gap:14px;align-content:start">
+ <div class="card">
+  <h1>String-pot calibration</h1>
+  <div class="sub">y = √(α·(n+N₀)² + k) &nbsp;·&nbsp; n = count since reader start</div>
+  <div class="count" id="count">—</div>
+  <div class="sub" id="cstat">connecting to Pi…</div>
+  <div class="prompt" id="prompt">Set the cart at a height, then type the ruler reading (mm).</div>
+  <form id="f"><input id="y" inputmode="decimal" autocomplete="off" placeholder="ruler mm" autofocus>
+   <button class="pri">Enter</button></form>
+  <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap">
+   <button id="finish" class="pri">Finish &amp; save</button>
+   <button id="new">New session</button>
+  </div>
+  <div class="sub" id="saved" style="margin-top:8px"></div>
+ </div>
+ <div class="card"><h2>Points</h2>
+  <table><thead><tr><th>#</th><th>count n</th><th>y mm</th><th>resid mm</th><th></th></tr></thead><tbody id="pts"></tbody></table>
+ </div>
+</div>
+<div class="right">
+ <div class="card"><h2>Fit</h2><div class="kv" id="fit"><div>need ≥ 3 points</div><div></div></div></div>
+ <div class="card"><h2>Ruler y vs count — fit curve</h2><svg id="p1" viewBox="0 0 640 260"></svg></div>
+ <div class="card"><h2>Residual (ruler − fit), mm — dots: √ model · gray: straight line</h2><svg id="p2" viewBox="0 0 640 200"></svg></div>
+</div>
+</main>
+<div id="tip"></div>
+<script>
+const $=id=>document.getElementById(id);
+let S=null, lastN=null;
+const f=(v,d=3)=>v==null||!isFinite(v)?'—':(+v).toFixed(d);
+const g=(v,d=4)=>v==null||!isFinite(v)?'—':(+v).toPrecision(d);
+
+async function post(p,b){const r=await fetch(p,{method:'POST',body:JSON.stringify(b||{})});const j=await r.json();if(!r.ok)throw new Error(j.err||r.status);return j}
+
+$('f').onsubmit=async e=>{e.preventDefault();const v=parseFloat($('y').value);
+ if(!isFinite(v)){flash('Type a number in mm.');return}
+ try{S=await post('/point',{y:v});$('y').value='';
+  const p=S.points[S.points.length-1];
+  setPrompt(`Saved #${S.points.length}: n=${p.n}, y=${v} mm${p.spread?` (count wobbled ${p.spread} — was it still?)`:''}.  MOVE the cart, then type the new ruler reading.`);
+  render()}catch(err){flash(err.message)}};
+$('finish').onclick=async()=>{try{const j=await post('/finish');$('saved').textContent='Saved '+j.path}catch(e){flash(e.message)}};
+$('new').onclick=async()=>{if(S&&S.points.length&&!confirm('Clear all points and start over?'))return;S=await post('/new');setPrompt('Set the cart at a height, then type the ruler reading (mm).');render()};
+function setPrompt(t,err){$('prompt').textContent=t;$('prompt').className='prompt'+(err?' err':'')}
+function flash(t){setPrompt(t,true)}
+window.del=async i=>{S=await post('/delete',{i});render()};
+
+async function poll(){try{S=await (await fetch('/state')).json();render()}catch(e){$('cstat').textContent='laptop server not reachable'}setTimeout(poll,150)}
+
+function render(){
+ if(!S)return;
+ $('count').textContent=S.count==null?'—':S.count;
+ $('cstat').innerHTML=S.count==null?`<span style="color:var(--bad)">no encoder data ${S.reader_err?'— '+S.reader_err:''}</span>`:
+  (S.moving?'<span class="flag">moving…</span>':'steady');
+ if(S.stale)flash("Encoder reader restarted — the count reference is lost. Click 'New session'.");
+ const F=S.fit||{}, A=F.A, B=F.B, L=F.line;
+ const rows=S.points.map((p,i)=>`<tr><td>${i+1}</td><td>${p.n}${p.spread?' <span class="flag">±'+p.spread+'</span>':''}</td><td>${f(p.y,1)}</td><td>${A?f(A.resid[i],2):'—'}</td><td><button onclick="del(${i})">✕</button></td></tr>`);
+ $('pts').innerHTML=rows.reverse().join('');
+ let kv=[];
+ if(A){kv.push(['α (mm²/count²)',`${g(A.alpha,6)} ± ${g(A.alpha_sd,2)}`],['k (mm²)',`${f(A.k,1)} ± ${f(A.k_sd,1)}`],
+  ['N₀ (counts)',`${f(A.N0,1)} ± ${f(A.N0_sd,1)}`],['√α (mm/count)',g(A.mm_per_count,6)]);
+  if(A.offset_mm!=null)kv.push(['implied offset √(−k)',f(A.offset_mm,1)+' mm']);
+  kv.push(['rms residual',`<b>${f(A.rms_mm,3)} mm</b> (max ${f(A.max_mm,2)}, dof ${A.dof})`]);}
+ if(L)kv.push(['straight line rms',`${f(L.rms_mm,3)} mm (${g(L.mm_per_count,5)} mm/count)`]);
+ if(B){const z=Math.abs(B.c_mm)/(B.c_sd||1e-9);kv.push(['ruler offset c (model B)',`${f(B.c_mm,1)} ± ${f(B.c_sd,1)} mm <span class="${z>3?'flag':''}">${z>3?'significant':'not significant'}</span>`],['model B rms',f(B.rms_mm,3)+' mm']);}
+ if(kv.length)$('fit').innerHTML=kv.map(([a,b])=>`<div>${a}</div><div>${b}</div>`).join('');
+ if(S.points.length!==lastN){lastN=S.points.length;plots(F)}
+}
+
+function scale(lo,hi,a,b){if(hi===lo){lo-=1;hi+=1}const p=(hi-lo)*.06;lo-=p;hi+=p;return v=>a+(v-lo)/(hi-lo)*(b-a)}
+function ticks(lo,hi,n=5){const s=Math.pow(10,Math.floor(Math.log10((hi-lo||1)/n)));const st=[1,2,5,10].map(m=>m*s).find(x=>(hi-lo)/x<=n)||s*10;const o=[];for(let v=Math.ceil(lo/st)*st;v<=hi;v+=st)o.push(+v.toPrecision(10));return o}
+function frame(W,H,xs,ys,X,Y,m){let s='';for(const v of ys)s+=`<line class="ax" x1="${m}" x2="${W-8}" y1="${Y(v)}" y2="${Y(v)}"/><text class="tk" x="${m-6}" y="${Y(v)+4}" text-anchor="end">${v}</text>`;
+ for(const v of xs)s+=`<text class="tk" x="${X(v)}" y="${H-6}" text-anchor="middle">${v}</text>`;return s}
+function dots(pts,cls){return pts.map(([x,y,t])=>`<circle cx="${x}" cy="${y}" r="5" fill="var(--acc)" stroke="var(--card)" stroke-width="2" data-t="${t}"/><circle cx="${x}" cy="${y}" r="12" fill="transparent" data-t="${t}"/>`).join('')}
+
+function plots(F){
+ const P=S.points;if(!P.length){$('p1').innerHTML=$('p2').innerHTML='';return}
+ const W=640,m=50,ns=P.map(p=>p.n),yv=P.map(p=>p.y);
+ const n0=Math.min(...ns),n1=Math.max(...ns);
+ // plot 1
+ let H=260,X=scale(n0,n1,m,W-10),Y=scale(Math.min(...yv),Math.max(...yv),H-26,10);
+ const yl=ticks(Math.min(...yv),Math.max(...yv)),xl=ticks(n0,n1,6);
+ let s=frame(W,H,xl,yl,X,Y,m);
+ if(F.A){let d='';for(let i=0;i<=120;i++){const n=n0+(n1-n0)*i/120,v=F.A.a*n*n+F.A.b*n+F.A.e;if(v>0)d+=(d?'L':'M')+X(n).toFixed(1)+','+Y(Math.sqrt(v)).toFixed(1)}
+  s+=`<path d="${d}" fill="none" stroke="var(--fit)" stroke-width="2"/>`}
+ s+=dots(P.map((p,i)=>[X(p.n),Y(p.y),`#${i+1}  n=${p.n}  y=${p.y} mm`]));
+ $('p1').innerHTML=s;
+ // plot 2
+ H=200;const R=F.A?F.A.resid:[],RL=F.line?F.line.resid:[],all=[...R,...RL,0];
+ const lim=Math.max(...all.map(Math.abs),0.5);Y=scale(-lim,lim,H-26,10);
+ s=frame(W,H,xl,ticks(-lim,lim,4),X,Y,m)+`<line x1="${m}" x2="${W-8}" y1="${Y(0)}" y2="${Y(0)}" stroke="var(--mute)" stroke-width="1"/>`;
+ s+=RL.map((r,i)=>`<circle cx="${X(P[i].n)}" cy="${Y(r)}" r="4" fill="var(--mute)" opacity=".6"/>`).join('');
+ s+=dots(R.map((r,i)=>[X(P[i].n),Y(r),`#${i+1}  n=${P[i].n}  resid ${r.toFixed(2)} mm (line ${RL[i]!=null?RL[i].toFixed(2):'—'})`]));
+ $('p2').innerHTML=s;
+}
+document.addEventListener('mousemove',e=>{const t=e.target.dataset&&e.target.dataset.t,tip=$('tip');
+ if(t){tip.textContent=t;tip.style.display='block';tip.style.left=e.clientX+12+'px';tip.style.top=e.clientY+12+'px'}else tip.style.display='none'});
+poll();
+</script></body></html>

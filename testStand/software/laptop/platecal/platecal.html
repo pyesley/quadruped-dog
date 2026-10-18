@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Plate Calibration</title>
+<style>
+:root{--bg:#0f1115;--card:#171a21;--ink:#e6e8ee;--ink2:#8b93a7;--line:#262b36;--acc:#4cc9f0;--ok:#22c55e;--warn:#f59e0b;--bad:#ef4444;--pt:#a3e635}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,sans-serif}
+main{max-width:1150px;margin:0 auto;padding:16px;display:grid;gap:14px;grid-template-columns:minmax(0,420px) minmax(0,1fr)}
+@media (max-width:860px){main{grid-template-columns:minmax(0,1fr)}}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px}
+h1{font-size:18px;margin:0 0 4px}h2{font-size:11px;margin:0 0 8px;color:var(--ink2);font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.sub{color:var(--ink2);font-size:12.5px}
+.prompt{font-size:22px;font-weight:650;margin:10px 0;padding:12px;border-radius:8px;background:color-mix(in srgb,var(--acc) 14%,transparent)}
+.prompt.empty{background:color-mix(in srgb,var(--warn) 16%,transparent)}
+.prompt.err{background:color-mix(in srgb,var(--bad) 18%,transparent);font-size:15px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:8px 0}
+input{width:80px;font:600 16px ui-monospace,monospace;padding:6px 8px;border:1px solid var(--line);border-radius:7px;background:var(--bg);color:var(--ink)}
+button{font:inherit;padding:8px 14px;border-radius:8px;border:1px solid var(--line);background:var(--card);color:var(--ink);cursor:pointer}
+button.pri{background:#2563eb;border-color:#2563eb;color:#fff;font-weight:600;font-size:16px;padding:10px 18px}
+button:disabled{opacity:.5;cursor:wait}
+.live{font:600 34px ui-monospace,monospace;font-variant-numeric:tabular-nums}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-variant-numeric:tabular-nums;font-size:13px}
+.kv div:nth-child(odd){color:var(--ink2)}
+table{width:100%;border-collapse:collapse;font:12px ui-monospace,monospace;font-variant-numeric:tabular-nums}
+td,th{padding:2px 6px;text-align:right;border-bottom:1px solid var(--line)}th{color:var(--ink2);font-weight:400}
+.flag{color:var(--warn)}
+.done{margin-top:10px!important;padding:10px 12px;border-radius:8px;background:color-mix(in srgb,var(--ok) 16%,transparent);color:var(--ink)!important;font-size:13.5px!important}.bad{color:var(--bad)}
+svg{width:100%;height:auto;display:block}
+.bar{height:6px;background:var(--line);border-radius:3px;overflow:hidden}.bar i{display:block;height:100%;background:var(--acc)}
+#tip{position:fixed;pointer-events:none;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:4px 8px;font-size:12px;display:none}
+</style></head><body>
+<main>
+<div style="display:grid;gap:14px;align-content:start">
+ <div class="card">
+  <h1>Force plate calibration</h1>
+  <div class="sub">Template at 100 % (<a href="/template.pdf" style="color:var(--acc)">template.pdf</a>) taped on · <b>leg lifted off the plate</b> · dash.py running</div>
+  <div class="row"><div class="bar" style="flex:1"><i id="prog" style="width:0"></i></div><span class="sub" id="progt">—</span></div>
+  <div class="prompt" id="prompt">connecting…</div>
+  <div class="row" id="loadin" style="display:none">
+   <label>mass <input id="mass" inputmode="decimal"> g</label>
+   <label>point <input id="pt" inputmode="numeric" style="width:60px"></label>
+   <span class="sub">change these if you used something else</span></div>
+  <div class="row"><button class="pri" id="cap">Captured ⏎</button><button id="undo">Undo last</button><button id="fin">Finish &amp; save</button></div>
+  <div class="sub">Place it, take your hands away, press Enter. It waits 1.5 s, then averages 2 s.</div>
+  <div class="sub" id="saved" style="margin-top:6px"></div>
+ </div>
+ <div class="card"><h2>Live (0.5 s mean)</h2>
+  <div class="live" id="lsum">—</div>
+  <div class="sub" id="lcells">—</div>
+ </div>
+</div>
+<div style="display:grid;gap:14px;align-content:start">
+ <div class="card"><h2>Fit — leave-one-out errors</h2><div class="kv" id="fit"><div>need ≥ 6 loads</div><div></div></div></div>
+ <div class="card"><h2>Plate (template view) — true point ● vs fitted centre of pressure ✕, cell positions found ◆</h2><svg id="map" viewBox="-110 -45 220 90"></svg></div>
+ <div class="card"><h2>Loads</h2>
+  <table><thead><tr><th>pt</th><th>mass g</th><th>Σcells g</th><th>fit err g</th><th>CoP err x,y mm</th><th>drift g</th><th>noise g</th></tr></thead><tbody id="tbl"></tbody></table></div>
+</div>
+</main>
+<div id="tip"></div>
+<script>
+const $=id=>document.getElementById(id);
+const f=(v,d=1)=>v==null||!isFinite(v)?'—':(+v).toFixed(d);
+let S=null,busy=false;
+const G=9.80665;
+async function post(p,b){const r=await fetch(p,{method:'POST',body:JSON.stringify(b||{})});const j=await r.json();if(!r.ok)throw new Error(j.err||r.status);return j}
+async function capture(){
+ if(busy||!S)return;busy=true;$('cap').disabled=true;
+ const b=S.need_empty?{}:{mass_g:parseFloat($('mass').value),pt:parseInt($('pt').value)};
+ $('prompt').textContent='hands off — measuring…';
+ try{S=await post('/capture',b);render()}catch(e){$('prompt').className='prompt err';$('prompt').textContent=e.message}
+ busy=false;$('cap').disabled=false}
+$('cap').onclick=capture;
+document.addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();capture()}});
+$('undo').onclick=async()=>{S=await post('/undo');render()};
+$('fin').onclick=async()=>{const sv=$('saved');sv.className='done';sv.textContent='fitting…';
+ try{const j=await post('/finish');const F=j.fit||{};
+  sv.innerHTML=j.path?`<b>✓ Saved</b> ${j.path}<br>Fz ${(+F.loo_fz_rms_g).toFixed(2)} g rms · CoP x ${(+F.loo_cop_rms_x_mm).toFixed(1)} / y ${(+F.loo_cop_rms_y_mm).toFixed(1)} mm rms · channels ${F.chan_corner}`
+   :'<b>Not saved</b> — need at least 6 good loads'}catch(e){sv.textContent='Save failed: '+e.message}};
+
+function render(){
+ if(!S)return;
+ $('prog').style.width=(100*S.step/S.of)+'%';$('progt').textContent=`${S.step} / ${S.of} loads`;
+ const P=$('prompt');
+ if(S.need_empty){P.className='prompt empty';P.textContent='Remove ALL weights — plate empty, then Enter';$('loadin').style.display='none'}
+ else if(S.next){P.className='prompt';P.innerHTML=`Place <b>${S.next.mass_g} g</b> on point <b>${S.next.pt}</b> <span class="sub">(x ${S.next.x>0?'+':''}${S.next.x}, y ${S.next.y>0?'+':''}${S.next.y})</span>`;
+  $('loadin').style.display='flex';if(document.activeElement!==$('mass')&&document.activeElement!==$('pt')){$('mass').value=S.next.mass_g;$('pt').value=S.next.pt}}
+ else{P.className='prompt';P.textContent='Plan done — press Finish & save (or keep adding: type mass + point, Enter)';$('loadin').style.display='flex'}
+ const F=S.fit||{};const kv=[];
+ if(F.sum_gain_err_pct!=null)kv.push(['current cal (Σ cells) vs truth',`${f(F.sum_gain_err_pct,2)} %`]);
+ if(F.A){kv.push(['Fz error, rms',`<b>${f(F.loo_fz_rms_g,2)} g</b>  (${f(F.loo_fz_rms_pct_ge100g,2)} % at ≥100 g)`],
+  ['CoP error rms (≥100 g)',`<b>x ${f(F.loo_cop_rms_x_mm,2)} mm, y ${f(F.loo_cop_rms_y_mm,2)} mm</b>`]);
+  F.chan_corner.split('').forEach((c,k)=>kv.push([`ch${k}`,`cell ${c} · acts like (${f(F.chan_pos_mm[k][0],0)}, ${f(F.chan_pos_mm[k][1],0)}) mm · gain ${f(F.chan_gain[k],3)}`]));
+  const Mo=F.models;kv.push(['physical model (drawing positions + 4 gains)',`Fz ${f(Mo.physical.fz_rms_g,2)} g · CoP ${f(Mo.physical.cop_rms_mm,2)} mm`],
+   ['general 3×4 (twist-blind)',`Fz ${f(Mo.general.fz_rms_g,2)} g · CoP ${f(Mo.general.cop_rms_mm,2)} mm`],['using',`<b>${Mo.used}</b>`]);
+  kv.push(['condition number',f(F.cond,1)]);}
+ if(kv.length)$('fit').innerHTML=kv.map(([a,b])=>`<div>${a}</div><div>${b}</div>`).join('');
+ const pts=F.points||[];
+ $('tbl').innerHTML=pts.map(p=>{const e=p.loo_err_g,ex=p.loo_err_x,ey=p.loo_err_y;
+  return `<tr><td>${p.pt}</td><td>${f(p.mass_g,0)}</td><td>${f(p.sum_g,1)}</td><td class="${e!=null&&Math.abs(e)>2?'flag':''}">${f(e,2)}</td><td>${p.mass_g>=100?f(ex,1)+', '+f(ey,1):'—'}</td><td class="${p.drift_g!=null&&Math.abs(p.drift_g)>1?'flag':''}">${f(p.drift_g,2)}</td><td>${f(p.noise_g,2)}</td></tr>`}).reverse().join('');
+ drawMap(F);
+}
+function drawMap(F){
+ // template orientation: x right, y UP (svg y flipped)
+ let g=`<rect x="-100" y="-35" width="200" height="70" fill="none" stroke="var(--ink2)" stroke-width=".6"/>`;
+ for(const sx of[-1,1])for(const sy of[-1,1])g+=`<rect x="${sx*49-15}" y="${-sy*27-8}" width="30" height="16" fill="none" stroke="var(--line)" stroke-dasharray="1.5 1.5"/>`;
+ const done=new Set((F.points||[]).map(p=>p.pt));
+ for(const [n,[x,y]] of Object.entries(PTS))g+=`<circle cx="${x}" cy="${-y}" r="1.6" fill="${done.has(+n)?'var(--pt)':'none'}" stroke="var(--pt)" stroke-width=".5"/><text x="${x+2}" y="${-y-2}" font-size="4" fill="var(--ink2)">${n}</text>`;
+ for(const p of F.points||[])if(p.mass_g>=100&&p.loo_cop_x!=null){const [x,y]=PTS[p.pt];
+  g+=`<line x1="${x}" y1="${-y}" x2="${p.loo_cop_x}" y2="${-p.loo_cop_y}" stroke="var(--warn)" stroke-width=".5"/><g data-t="pt ${p.pt} ${p.mass_g} g: CoP (${p.loo_cop_x.toFixed(1)}, ${p.loo_cop_y.toFixed(1)}) err ${p.loo_err_x.toFixed(1)}, ${p.loo_err_y.toFixed(1)} mm"><path d="M${p.loo_cop_x-1.4},${-p.loo_cop_y-1.4}l2.8,2.8m0,-2.8l-2.8,2.8" stroke="var(--warn)" stroke-width=".7"/><circle cx="${p.loo_cop_x}" cy="${-p.loo_cop_y}" r="4" fill="transparent" data-t="pt ${p.pt}: err ${p.loo_err_x.toFixed(1)}, ${p.loo_err_y.toFixed(1)} mm"/></g>`}
+ if(F.chan_pos_mm)F.chan_pos_mm.forEach(([x,y],k)=>{g+=`<path d="M${x},${-y-2.4}l2.4,2.4l-2.4,2.4l-2.4,-2.4z" fill="var(--acc)"/><text x="${x}" y="${-y+(y>0?-4:7)}" font-size="4.2" text-anchor="middle" fill="var(--acc)">ch${k}</text>`});
+ $('map').innerHTML=g;
+}
+let PTS={};
+async function live(){try{const c=await (await fetch('/live')).json();
+ if(c.n){const tot=c.f0+c.f1+c.f2+c.f3;$('lsum').textContent=`${(tot/G*1000).toFixed(1)} g`;
+  $('lcells').textContent=[0,1,2,3].map(k=>`ch${k} ${c['f'+k].toFixed(3)} N`).join('  ·  ')+`  ·  noise ${(c.sfz/G*1000).toFixed(2)} g`}
+ else{$('lsum').textContent='—';$('lcells').textContent=c.err||'no plate data'}}catch(e){}
+ setTimeout(live,300)}
+(async()=>{
+ const pts=await (await fetch('/points.json')).json();
+ PTS=Object.fromEntries(pts.map(p=>[p.pt,[p.x,p.y]]));
+ S=await (await fetch('/state')).json();render();live()})();
+document.addEventListener('mousemove',e=>{const t=e.target.dataset&&e.target.dataset.t,tip=$('tip');
+ if(t){tip.textContent=t;tip.style.display='block';tip.style.left=e.clientX+12+'px';tip.style.top=e.clientY+12+'px'}else tip.style.display='none'});
+</script></body></html>

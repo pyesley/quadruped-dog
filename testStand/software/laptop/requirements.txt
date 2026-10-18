@@ -1,0 +1,4 @@
+# Laptop side of the leg test stand.  Install with:  pip install -r requirements.txt
+moteus>=0.3.60      # moteus register protocol + fdcanusb transport (hop.py, step.py, monitor.py, stop.py, jog.py)
+pyserial>=3.5       # raw fdcanusb text-protocol tools (fdcanusb.py, comm_test.py)
+numpy               # stringcal / platecal calibration apps

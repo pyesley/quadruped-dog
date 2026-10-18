@@ -1,0 +1,936 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Leg Test Stand</title>
+<style>
+  :root { --bg:#0f1115; --panel:#171a21; --panel2:#1d222c; --line:#262b36; --fg:#e6e8ee; --dim:#8b93a7;
+          --fz:#ff8a3d; --z:#4cc9f0; --m1:#a3e635; --m2:#f472b6; --cmd:#6b7280;
+          --rec:#ef4444; --ok:#22c55e; --warn:#f59e0b; --arm:#eab308; --lim:#ef4444; }
+  * { box-sizing:border-box; }
+  body { margin:0; background:var(--bg); color:var(--fg); font:14px/1.4 system-ui,-apple-system,Segoe UI,Roboto,sans-serif; }
+  header { display:flex; align-items:center; gap:10px; padding:10px 16px; border-bottom:1px solid var(--line); flex-wrap:wrap; }
+  header h1 { font-size:16px; margin:0 6px 0 0; font-weight:600; letter-spacing:.2px; white-space:nowrap; }
+  .pill { padding:3px 9px; border-radius:999px; background:var(--panel); border:1px solid var(--line); font-size:12px; color:var(--dim); white-space:nowrap; }
+  .pill b { color:var(--fg); font-weight:600; }
+  .pill.ok { border-color:var(--ok); } .pill.warn { border-color:var(--warn); }
+  .pill.bad { border-color:var(--rec); } .pill.arm { border-color:var(--arm); color:var(--arm); }
+  .spacer { flex:1; }
+  button, select, input { background:var(--panel); color:var(--fg); border:1px solid var(--line);
+                          border-radius:6px; padding:6px 10px; font:inherit; }
+  button { cursor:pointer; } button:hover:not(:disabled) { border-color:var(--dim); }
+  button:disabled { opacity:.4; cursor:default; }
+  input[type=number] { width:74px; font-family:ui-monospace,Menlo,Consolas,monospace; }
+  .seg { display:flex; border:1px solid var(--line); border-radius:6px; overflow:hidden; }
+  .seg button { border:0; border-radius:0; padding:6px 14px; background:var(--panel); }
+  .seg button.on { background:#2d5bd7; color:#fff; }
+  button.rec.on { background:var(--rec); border-color:var(--rec); color:#fff; }
+  button.go { border-color:#2d5bd7; }
+  main { padding:12px 16px 32px; max-width:1500px; margin:0 auto; }
+  .bar { display:flex; align-items:center; gap:10px; flex-wrap:wrap; background:var(--panel2);
+         border:1px solid var(--line); border-radius:8px; padding:9px 12px; margin-bottom:12px; }
+  .bar label { font-size:12px; color:var(--dim); display:flex; align-items:center; gap:5px; }
+  .tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(132px,1fr)); gap:9px; margin-bottom:12px; }
+  .tile { background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:8px 11px; }
+  .tile.hot { border-color:var(--warn); } .tile.bad { border-color:var(--rec); }
+  .tile .k { font-size:10.5px; color:var(--dim); text-transform:uppercase; letter-spacing:.6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .tile .v { font:600 23px/1.15 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; margin-top:2px; }
+  .tile .u { font-size:11.5px; color:var(--dim); margin-left:4px; font-weight:400; }
+  .chart { background:var(--panel); border:1px solid var(--line); border-radius:8px; margin-bottom:9px; position:relative; }
+  .chart canvas { display:block; width:100%; height:165px; cursor:crosshair; }
+  .chart .lg { position:absolute; top:6px; left:60px; font:12px ui-monospace,Menlo,Consolas,monospace;
+               color:var(--dim); display:flex; gap:14px; pointer-events:none; flex-wrap:wrap; }
+  .chart .lg i { display:inline-block; width:10px; height:3px; margin-right:5px; vertical-align:middle; border-radius:2px; }
+  .note { color:var(--dim); font-size:12px; margin-top:10px; }
+  .warns { margin-bottom:12px; }
+  .warns div.note-row { background:#1a2030; border-color:#3b82f6; color:#bfdbfe; }
+  .warns div { background:#2a1414; border:1px solid var(--rec); color:#fecaca; border-radius:6px;
+               padding:6px 11px; font-size:13px; margin-bottom:5px; }
+  .shotbar { background:var(--panel2); border:1px solid var(--arm); border-radius:8px;
+             padding:9px 12px; margin-bottom:12px; }
+  .shotbar .row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .stats { display:grid; grid-template-columns:repeat(auto-fit,minmax(118px,1fr)); gap:7px; margin-top:9px; }
+  .stat { background:var(--panel); border:1px solid var(--line); border-radius:6px; padding:5px 9px; }
+  .stat .k { font-size:10px; color:var(--dim); text-transform:uppercase; letter-spacing:.5px; }
+  .stat .v { font:600 15px/1.2 ui-monospace,Menlo,Consolas,monospace; }
+  .shotlist { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  .shotlist button { padding:3px 9px; font-size:12px; font-family:ui-monospace,Menlo,Consolas,monospace; }
+  .shotlist button.on { border-color:#2d5bd7; background:#22304f; }
+  .ik { display:grid; grid-template-columns:minmax(0,230px) minmax(0,1fr); gap:14px; background:var(--panel);
+        border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin-bottom:12px; }
+  @media (max-width:700px) { .ik { grid-template-columns:minmax(0,1fr); } }
+  .ik h3 { margin:0 0 6px; font-size:10.5px; color:var(--dim); text-transform:uppercase; letter-spacing:.6px; font-weight:600; }
+  .ik svg { width:100%; height:auto; display:block; }
+  .ik table { border-collapse:collapse; font:12.5px ui-monospace,Menlo,Consolas,monospace; width:100%; max-width:560px; }
+  .ik td, .ik th { padding:2px 8px; text-align:right; border-bottom:1px solid var(--line); white-space:nowrap; }
+  .ik th { color:var(--dim); font-weight:400; } .ik td:first-child, .ik th:first-child { text-align:left; color:var(--dim); }
+  .ik .row { display:flex; align-items:center; gap:8px; flex-wrap:wrap; margin-bottom:8px; }
+  .ik input[type=range] { flex:1; min-width:140px; }
+  .ik .kv { display:grid; grid-template-columns:auto 1fr; gap:0 12px; }
+  .ik .warnline { color:var(--warn); font-size:12px; margin-top:6px; }
+  .hoppanel { background:var(--panel2); border:1px solid var(--line); border-radius:8px; padding:10px 12px; margin-bottom:12px; }
+  .hoppanel.live { border-color:#2563eb; }
+  .hp-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:6px; }
+  .hp-head b { font-size:14px; }
+  .hp-off { color:var(--dim); font-size:12.5px; line-height:1.7; }
+  .hp-row { display:flex; align-items:center; gap:12px; flex-wrap:wrap; }
+  .hp-go { font-size:17px; font-weight:700; padding:10px 26px; background:#2563eb; border-color:#2563eb; color:#fff; border-radius:8px; }
+  .hp-go:disabled { background:var(--panel); border-color:var(--line); color:var(--dim); cursor:not-allowed; }
+  .hp-knob { display:flex; align-items:center; gap:6px; background:var(--panel); border:1px solid var(--line); border-radius:8px; padding:3px 8px; }
+  .hp-knob button { padding:2px 10px; font-weight:700; }
+  .hp-knob b { min-width:86px; text-align:center; font:600 13px ui-monospace,Menlo,Consolas,monospace; }
+  .hp-stop { background:var(--rec); border-color:var(--rec); color:#fff; font-weight:700; }
+  .hoppanel pre { margin:8px 0 2px; font:12px ui-monospace,Menlo,Consolas,monospace; white-space:pre-wrap; color:var(--fg); }
+  #hpLast { font:12px ui-monospace,Menlo,Consolas,monospace; color:var(--dim); }
+  code { background:var(--panel); padding:1px 5px; border-radius:4px; font-size:12px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Leg test stand</h1>
+  <div class="seg" id="modeSeg">
+    <button data-mode="cont" class="on">Continuous</button><button data-mode="shot">One-shot</button>
+  </div>
+  <span class="pill" id="pPlate">plate: <b>—</b></span>
+  <span class="pill" id="pMotor">motors: <b>—</b></span>
+  <span class="pill" id="pShot" style="display:none">—</span>
+  <span class="pill" id="pRec">idle</span>
+  <span class="spacer"></span>
+  <label class="pill">window
+    <select id="win"><option>2</option><option>5</option><option selected>10</option><option>20</option><option>60</option></select> s</label>
+  <button id="pause">Pause</button>
+  <button id="cartmm" title="read the cart height off the ruler, click, type it (once per platelog start)">Cart is … mm</button>
+  <button id="zeroang" title="call the current motor positions 0 deg">Zero angles</button>
+  <button id="calmm" title="measure hip axis to foot with a tape, then click and type it">Leg is … mm</button>
+  <button id="tare" title="re-tare the plate (must be EMPTY)">Tare plate</button>
+  <button id="rec" class="rec">● Record</button>
+</header>
+<main>
+  <div class="warns" id="warns"></div>
+
+  <div class="shotbar" id="shotbar" style="display:none">
+    <div class="row">
+      <label>pre <input type="number" id="pre" value="200" min="10" max="5000" step="10"> ms</label>
+      <label>post <input type="number" id="post" value="600" min="20" max="10000" step="10"> ms</label>
+      <label>trigger
+        <select id="src">
+          <option value="fz_rise">Fz rising through</option>
+          <option value="fz_fall">Fz falling through</option>
+          <option value="fz_abs">|Fz| above</option>
+          <option value="motor_move">step.py starts a move</option>
+          <option value="vel">|motor vel| above</option>
+          <option value="manual">manual only</option>
+        </select></label>
+      <label><span id="lvlUnit">N</span> <input type="number" id="level" value="5" step="0.5"></label>
+      <button id="arm" class="go">Arm</button>
+      <button id="force" disabled>Force trigger</button>
+      <button id="disarm" disabled>Disarm</button>
+      <label><input type="checkbox" id="rearm" style="width:auto"> auto re-arm</label>
+      <span class="spacer"></span>
+      <button id="live" style="display:none">↻ Back to live</button>
+    </div>
+    <div class="stats" id="stats" style="display:none"></div>
+    <div class="shotlist" id="shotlist"></div>
+  </div>
+
+  <div class="hoppanel" id="hopPanel">
+    <div class="hp-head"><b>hop.py</b><span class="pill" id="hpStyle">not running</span>
+      <span class="pill" id="hpPhase" style="display:none"></span><span class="pill" id="hpCount" style="display:none"></span></div>
+    <div id="hpOff" class="hp-off">
+      Start it in a terminal (stop <code>monitor.py</code> / <code>step.py</code> first), answer <b>y</b>, then control it here:<br>
+      drops: <code>cd ~/testRobot &amp;&amp; python3 hop.py --style drop --telemetry 127.0.0.1:9871</code><br>
+      hops:&nbsp; <code>cd ~/testRobot &amp;&amp; python3 hop.py --telemetry 127.0.0.1:9871</code>
+      &nbsp;· emergency: <code>python3 stop.py</code></div>
+    <div id="hpOn" style="display:none">
+      <div class="hp-row">
+        <button id="hpGo" class="hp-go" data-k="h" disabled>DROP</button>
+        <div class="hp-knob"><span id="hpK1lab">fold</span><button data-k="-">−</button><b id="hpK1">—</b><button data-k="+">+</button></div>
+        <div class="hp-knob"><span id="hpK2lab">accel</span><button data-k="[">−</button><b id="hpK2">—</b><button data-k="]">+</button></div>
+        <button id="hpAuto" data-k="a" title="repeat every --dwell seconds (default 2)">auto: off</button>
+        <span class="spacer"></span>
+        <button class="hp-stop" data-k="q" title="stops the motors and exits hop.py">■ Stop &amp; quit</button>
+      </div>
+      <pre id="hpPlan"></pre>
+      <div id="hpLast"></div>
+    </div>
+  </div>
+
+  <div class="tiles">
+    <div class="tile"><div class="k" id="kFz">Fz</div><div class="v" id="tFz">—<span class="u">N</span></div></div>
+    <div class="tile"><div class="k">peak Fz</div><div class="v" id="tPk">—<span class="u">N</span></div></div>
+    <div class="tile"><div class="k" id="kZ">cart height (string pot)</div><div class="v" id="tZ">—<span class="u">mm</span></div></div>
+    <div class="tile"><div class="k">leg length</div><div class="v" id="tLen">—<span class="u">mm</span></div></div>
+    <div class="tile" id="cellCoP"><div class="k">CoP x, y (plate)</div><div class="v" id="tCoP" style="font-size:19px">—</div></div>
+    <div class="tile"><div class="k" id="kA1">joint 1</div><div class="v" id="tA1">—<span class="u">°</span></div></div>
+    <div class="tile"><div class="k" id="kA2">joint 2</div><div class="v" id="tA2">—<span class="u">°</span></div></div>
+    <div class="tile" id="cell1"><div class="k">current 1</div><div class="v" id="tI1">—<span class="u">A</span></div></div>
+    <div class="tile" id="cell2"><div class="k">current 2</div><div class="v" id="tI2">—<span class="u">A</span></div></div>
+    <div class="tile"><div class="k">torque 1</div><div class="v" id="tT1">—<span class="u">N·m</span></div></div>
+    <div class="tile"><div class="k">torque 2</div><div class="v" id="tT2">—<span class="u">N·m</span></div></div>
+    <div class="tile" id="cellV"><div class="k">bus</div><div class="v" id="tV">—<span class="u">V</span></div></div>
+    <div class="tile" id="cellT"><div class="k">board temp</div><div class="v" id="tTemp">—<span class="u">°C</span></div></div>
+    <div class="tile" id="cellMode"><div class="k">motor mode</div><div class="v" id="tMode" style="font-size:15px">—</div></div>
+    <div class="tile"><div class="k">state</div><div class="v" id="tSt" style="font-size:15px">—</div></div>
+  </div>
+
+  <div class="ik" id="ikPanel">
+    <div><h3>Leg — side view</h3>
+      <svg id="ikSvg" viewBox="0 0 230 300"></svg>
+      <div style="font-size:11px;color:var(--dim)">solid = measured (encoders) · dashed = IK target</div></div>
+    <div><h3>Inverse kinematics — hip height → joint angles</h3>
+      <div class="row"><label>target hip height</label>
+        <input type="range" id="ikH" min="14" max="333" step="0.5" value="240">
+        <input type="number" id="ikHn" step="0.5" style="width:80px"> mm
+        <button id="ikLink" title="foot on the plate: make string-pot height read the same as the encoder leg length from now on">Link cart → leg</button>
+        <button id="copLink" title="foot on the plate: note where the hip line sits in plate coordinates, so CoP can be compared with the encoders">Link CoP → leg</button>
+        <button id="copFlip" title="the CoP dot moves the wrong way when the foot moves: flip which plate direction is 'ahead'">Flip CoP dir</button></div>
+      <table><thead><tr><th></th><th>hip height</th><th>hip °</th><th>knee °</th><th>hip motor rev</th><th>knee motor rev</th><th>foot ahead of hip</th></tr></thead>
+        <tbody id="ikRows"></tbody></table>
+      <div class="warnline" id="ikWarn"></div>
+    </div>
+  </div>
+
+  <div id="charts">
+    <div class="chart"><canvas id="cFz"></canvas><div class="lg"><span><i style="background:var(--fz)"></i>Fz [N]<span id="lgBand"> · band = per-bin min/max</span></span></div></div>
+    <div class="chart"><canvas id="cZ"></canvas><div class="lg"><span><i style="background:var(--z)"></i>cart height, string pot [mm]</span><span><i style="background:var(--m1)"></i>leg length from encoders [mm]</span></div></div>
+    <div class="chart"><canvas id="cCoP"></canvas><div class="lg"><span><i style="background:var(--z)"></i>CoP x, along the plate [mm]</span><span><i style="background:var(--cmd)"></i>CoP y, across</span><span id="lgCoPenc"><i style="background:var(--m1)"></i>foot contact from encoders (plate x)</span></div></div>
+    <div class="chart"><canvas id="cAng"></canvas><div class="lg"><span><i style="background:var(--m1)"></i><span id="lgA1">joint 1</span> [°]</span><span><i style="background:var(--m2)"></i><span id="lgA2">joint 2</span> [°]</span><span><i style="background:var(--cmd)"></i>commanded</span></div></div>
+    <div class="chart"><canvas id="cVel"></canvas><div class="lg"><span><i style="background:var(--m1)"></i>motor 1 [rev/s]</span><span><i style="background:var(--m2)"></i>motor 2 [rev/s]</span></div></div>
+    <div class="chart"><canvas id="cTq"></canvas><div class="lg"><span><i style="background:var(--m1)"></i>torque 1 [N·m]</span><span><i style="background:var(--m2)"></i>torque 2 [N·m]</span></div></div>
+    <div class="chart"><canvas id="cAmp"></canvas><div class="lg"><span><i style="background:var(--m1)"></i>phase current 1 [A]</span><span><i style="background:var(--m2)"></i>2</span><span><i style="background:var(--lim)"></i>warn / servo.max_current_A</span></div></div>
+    <div class="chart"><canvas id="cV"></canvas><div class="lg"><span><i style="background:var(--z)"></i>bus [V]</span><span><i style="background:#a16207"></i>flux brake from</span><span><i style="background:var(--lim)"></i>servo.max_voltage = fault, torque off</span></div></div>
+  </div>
+  <div class="ik" style="grid-template-columns:minmax(0,600px) minmax(0,220px);justify-content:start">
+    <div><h3>Plate — top view · centre of pressure</h3>
+      <svg id="topSvg" viewBox="-112 -50 224 100" style="max-width:600px"></svg></div>
+    <div style="align-self:center">
+      <div class="kv" id="topKv" style="font:12.5px ui-monospace,Menlo,Consolas,monospace;line-height:1.7"></div>
+      <div style="font-size:11px;color:var(--dim);margin-top:8px">dot size ∝ load · trail = last 2 s<br>
+        orientation as on the calibration template (cells A B at the top)</div></div>
+  </div>
+
+  <div class="note" id="note">Waiting for data…</div>
+</main>
+<script>
+// Any script error shows in the note line instead of silently freezing the page.
+window.onerror = (msg, src, line, col) => {
+  let n = document.getElementById('jserr');
+  if (!n) { n = document.createElement('div'); n.id = 'jserr';
+    n.style.cssText = 'position:fixed;bottom:8px;left:8px;right:8px;padding:6px 10px;background:#7f1d1d;color:#fff;font:12px monospace;border-radius:6px;z-index:9';
+    document.body.appendChild(n); }
+  n.textContent = `JS error: ${msg} (line ${line}:${col})`;
+};
+</script>
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
+  const C = {fz:css('--fz'), z:css('--z'), m1:css('--m1'), m2:css('--m2'), cmd:css('--cmd'),
+             dim:css('--dim'), line:css('--line'), fg:css('--fg'), lim:css('--lim'), arm:css('--arm')};
+
+  // ---- state ----------------------------------------------------------------
+  // Live rows.  P: [t, fz, z, lo, hi].  M: [t, m1, m2, cmd, state] where m1/m2
+  // are the per-motor dicts straight from step.py (pos/vel/tq/q/d/pw/volt/...).
+  const P = [], M = [];
+  let win = 10, paused = false, lastRx = performance.now(), lastT = 0;
+  let status = {}, cfg = null, shotData = null, shownShot = null, viewShot = false;
+  let cursor = null, geom = null;
+
+  const DEG = (pos, j) => (pos == null || !j) ? null
+        : (pos - (j.zero_rev || 0)) / (j.gear_ratio || 1) * 360 * (j.sign == null ? 1 : j.sign)
+          + (j.offset_deg || 0);
+  // A motor row is [t, id1, id2, cmd, state], keyed by CONTROLLER id, while
+  // cfg.joints is ordered by KINEMATIC position: [0] root (hip), [1] distal
+  // (knee).  Those are not the same thing, so always go through the config.
+  const mById = (r, id) => (+id === 1 ? r[1] : r[2]) || {};
+  const angAt = (r, idx) => { const j = jn(idx); return j ? DEG(mById(r, j.id).pos, j) : null; };
+  const cmdAt = (r, idx) => { const j = jn(idx);
+    return j ? DEG((r[3] || {})[String(j.id)], j) : null; };
+  // Leg length between hip and foot for two equal segments.  With the ODRI belt
+  // the lower link angle is absolute, so the relative knee angle is distal-root.
+  // Angles read 0/0 with the leg FOLDED and rise to hip 90 / knee 180 extended,
+  // so the knee reading IS the included angle between the links:
+  //   leg = 2 L sin(knee/2).   0 deg -> folded (0 mm), 180 deg -> straight (2L).
+  function legLen(r) {
+    const lg = cfg && cfg.leg;
+    if (!lg || lg.enabled === false) return null;
+    const q2 = angAt(r, 1);
+    if (q2 == null) return null;
+    const inc = Math.abs(wrap180(q2 + (lg.knee_offset_deg || 0)));
+    // + the foot cylinder, so this reads as hip height above the floor
+    return Math.abs(2 * (lg.segment_mm || 160) * Math.sin(inc * Math.PI / 360))
+           + (lg.foot_offset_mm || 0);
+  }
+  // ---- inverse kinematics.  Same convention as legLen: folded hip 0 / knee 0,
+  // extended hip 90 / knee 180, knee = included angle.  With the foot directly
+  // under the hip (vertical slider) the triangle is isosceles:
+  //   knee = 2 asin((h - foot) / 2L),   hip = knee / 2.
+  function ikSolve(h) {
+    const lg = (cfg && cfg.leg) || {}, L = lg.segment_mm || 160, f = lg.foot_offset_mm || 0;
+    const x = (h - f) / (2 * L);
+    if (!(x >= 0 && x <= 1)) return null;
+    const knee = 2 * Math.asin(x) * 180 / Math.PI;
+    return {h, hip: knee / 2, knee};
+  }
+  // Forward: hip angle (thigh below horizontal) and included knee angle -> foot,
+  // in mm relative to the hip pivot, x forward, y up.
+  function fkFoot(hip, inc) {
+    const L = (cfg && cfg.leg && cfg.leg.segment_mm) || 160, r = Math.PI / 180;
+    const K = [L * Math.cos(hip * r), -L * Math.sin(hip * r)];
+    const a = (180 - hip + inc) * r;
+    return {K, F: [K[0] + L * Math.cos(a), K[1] + L * Math.sin(a)]};
+  }
+  // Joint degrees -> motor revolutions, the inverse of DEG().  kneeSign picks
+  // the knee's direction from the live reading, because leg_config's knee
+  // "sign" is not verified yet (the knee may read negative as it opens).
+  const REV = (deg, j) => (j.zero_rev || 0)
+        + (deg - (j.offset_deg || 0)) / 360 * (j.gear_ratio || 1) * (j.sign == null ? 1 : j.sign);
+  let ikTarget = 240, kneeSign = 1;
+  const FAKECOP = location.search.includes('fakecop');
+  // Where the encoders put the ball's floor contact, in plate-x mm: the hip line's
+  // plate x plus (foot ahead of hip) along the plate direction the foot points.
+  function encContactX(r) {
+    const lg = (cfg && cfg.leg) || {};
+    if (lg.cop_hip_x_mm == null) return null;
+    const hip = angAt(r, 0), q2 = angAt(r, 1);
+    if (hip == null || q2 == null) return null;
+    const inc = Math.abs(wrap180(q2 + (lg.knee_offset_deg || 0)));
+    return lg.cop_hip_x_mm + (lg.cop_dir || 1) * fkFoot(hip, inc).F[0];
+  }
+  function ikRow(name, h, hip, knee) {
+    const j0 = jn(0), j1 = jn(1), lg = (cfg && cfg.leg) || {};
+    const f = (v, d) => (v == null || isNaN(v)) ? '—' : v.toFixed(d);
+    const q2 = knee == null ? null : kneeSign * knee - (lg.knee_offset_deg || 0);
+    const ft = (hip == null || knee == null) ? null : fkFoot(hip, knee).F[0];
+    return `<tr><td>${name}</td><td>${f(h, 1)}</td><td>${f(hip, 1)}</td><td>${f(knee, 1)}</td>` +
+      `<td>${j0 && hip != null ? f(REV(hip, j0), 3) : '—'}</td><td>${j1 && q2 != null ? f(REV(q2, j1), 3) : '—'}</td>` +
+      `<td>${f(ft, 1)}</td></tr>`;
+  }
+  function drawIK(m, p) {
+    const lg = (cfg && cfg.leg) || {}, L = lg.segment_mm || 160, fo = lg.foot_offset_mm || 0;
+    const hipM = m ? angAt(m, 0) : null, q2 = m ? angAt(m, 1) : null;
+    const kneeM = q2 == null ? null : Math.abs(wrap180(q2 + (lg.knee_offset_deg || 0)));
+    if (q2 != null && Math.abs(q2) > 5) kneeSign = Math.sign(q2);
+    const hM = m ? legLen(m) : null;
+    const cart = p ? p[2] * 1000 : null, link = lg.cart_to_hip_mm;
+    const hS = (cart != null && link != null) ? cart + link : null;
+    const T = ikSolve(ikTarget), S = hS != null ? ikSolve(hS) : null;
+    let rows = ikRow('target', T && T.h, T && T.hip, T && T.knee);
+    rows += ikRow('measured', hM, hipM, kneeM);
+    rows += S ? ikRow('from string pot', S.h, S.hip, S.knee)
+              : `<tr><td>from string pot</td><td colspan="6" style="text-align:left">${link == null
+                 ? 'not linked — foot on plate, then “Link cart → leg”' : 'out of reach'}</td></tr>`;
+    // CoP: contact point measured by the plate, in "ahead of hip" mm once linked
+    const cxp = p ? p[5] : null, hipX = lg.cop_hip_x_mm, dir = lg.cop_dir || 1;
+    const copAhead = (cxp != null && hipX != null) ? dir * (cxp - hipX) : null;
+    const encAhead = (hipM != null && kneeM != null) ? fkFoot(hipM, kneeM).F[0] : null;
+    rows += `<tr><td>contact, plate CoP</td><td colspan="5" style="text-align:left">${
+      cxp == null ? (status.cop_cal ? 'plate unloaded' : 'no plate_matrix.json')
+      : hipX == null ? `CoP x ${cxp.toFixed(1)} mm — foot on plate, then “Link CoP → leg”`
+      : `CoP − encoders = <b>${(copAhead - encAhead).toFixed(1)} mm</b>`}</td><td>${copAhead == null ? '—' : copAhead.toFixed(1)}</td></tr>`;
+    $('ikRows').innerHTML = rows;
+    const w = [];
+    if (hipM != null && kneeM != null && Math.abs(hipM - kneeM / 2) > 5)
+      w.push(`hip ${hipM.toFixed(1)}° ≠ knee/2 ${(kneeM / 2).toFixed(1)}° — foot is not under the hip`);
+    if (kneeSign < 0) w.push('knee reads negative as it opens: motor revs above use that; leg_config knee "sign" is +1');
+    $('ikWarn').textContent = w.join(' · ');
+    // Side view, mirrored so the foot points left.  The foot is a cylinder of
+    // radius R fixed to the shin, axis across the plane of motion: it ROLLS on
+    // the floor, so the contact point is always straight below its centre, and
+    // the hip sits at (vertical hip->centre) + R.  The two spokes turn with the
+    // shin so the rolling is visible.
+    const R = lg.foot_radius_mm || fo, sc = 250 / (2 * L + R), cx = 140, fy = 285;
+    const P = (x, y) => [cx - x * sc, fy - y * sc];               // mm (x fwd, y up) -> px
+    let g = `<line x1="5" x2="225" y1="${fy}" y2="${fy}" stroke="${C.dim}" stroke-width="1.5"/>` +
+            `<line x1="${cx}" x2="${cx}" y1="8" y2="${fy}" stroke="${C.line}" stroke-width="6" stroke-linecap="round"/>`;
+    const leg = (hip, inc, dash, c1, c2) => {
+      const {K, F} = fkFoot(hip, inc), hy = -F[1] + R;             // hip height above the floor
+      const H = P(0, hy), Kp = P(K[0], hy + K[1]), Fp = P(F[0], hy + F[1]), Gp = P(F[0], 0);
+      const st = dash ? 'stroke-dasharray="5 4"' : '', wd = dash ? 2 : 5, fc = dash ? C.dim : C.fg;
+      const a = (180 - hip + inc) * Math.PI / 180, r = R * sc;
+      let o = `<line x1="${H[0]}" y1="${H[1]}" x2="${Kp[0]}" y2="${Kp[1]}" stroke="${c1}" stroke-width="${wd}" stroke-linecap="round" ${st}/>` +
+              `<line x1="${Kp[0]}" y1="${Kp[1]}" x2="${Fp[0]}" y2="${Fp[1]}" stroke="${c2}" stroke-width="${wd}" stroke-linecap="round" ${st}/>` +
+              `<circle cx="${Fp[0]}" cy="${Fp[1]}" r="${r}" fill="none" stroke="${fc}" stroke-width="1.5" ${st}/>`;
+      if (!dash) {
+        for (const d of [0, Math.PI / 2]) {                           // spokes fixed to the shin
+          const dx = r * Math.cos(a + d), dy = r * Math.sin(a + d);
+          o += `<line x1="${Fp[0] + dx}" y1="${Fp[1] + dy}" x2="${Fp[0] - dx}" y2="${Fp[1] - dy}" stroke="${fc}" stroke-width="1"/>`;
+        }
+        o += `<circle cx="${Gp[0]}" cy="${Gp[1]}" r="2.5" fill="${C.fz}"/>`;   // contact point
+      }
+      return o + `<circle cx="${H[0]}" cy="${H[1]}" r="5" fill="${C.bg || '#0f1115'}" stroke="${fc}" stroke-width="2"/>`;
+    };
+    if (T) g += leg(T.hip, T.knee, true, C.dim, C.dim);
+    if (hipM != null && kneeM != null) g += leg(hipM, kneeM, false, C.m1, C.m2);
+    if (copAhead != null) { const X0 = cx - copAhead * sc;      // plate CoP on the floor
+      g += `<path d="M${X0},${fy - 7}l5,7l-5,7l-5,-7z" fill="${C.z}" opacity=".9"/>` +
+           `<text x="${X0}" y="${fy + 13}" fill="${C.z}" font-size="9" text-anchor="middle">CoP</text>`; }
+    if (hS != null) { const y = fy - hS * sc;
+      g += `<line x1="${cx + 8}" x2="${cx + 22}" y1="${y}" y2="${y}" stroke="${C.z}" stroke-width="3"/>` +
+           `<text x="${cx + 26}" y="${y + 4}" fill="${C.z}" font-size="10">pot</text>`; }
+    $('ikSvg').innerHTML = g;
+  }
+  // ---- plate top view: outline, the four cell pads (as calibrated), CoP + trail.
+  // Same orientation as the printed template: x right, y UP, cells A B on top.
+  function drawTop(RP, m, p) {
+    const sv = $('topSvg'); if (!sv) return;
+    const cal = status.cop_cal, lg = (cfg && cfg.leg) || {};
+    const map = (cal && cal.chan_corner) || '';
+    const pads = {A:[-49, 27], B:[49, 27], C:[-49, -27], D:[49, -27]};
+    let g = `<rect x="-100" y="-35" width="200" height="70" rx="2" fill="${C.line}" fill-opacity=".25" stroke="${C.dim}" stroke-width=".8"/>`;
+    for (let k = -75; k <= 75; k += 25)
+      g += `<line x1="${k}" x2="${k}" y1="-35" y2="35" stroke="${C.line}" stroke-width=".4"/>`;
+    g += `<line x1="-100" x2="100" y1="0" y2="0" stroke="${C.line}" stroke-width=".4"/>`;
+    for (const [c, [x, y]] of Object.entries(pads)) {
+      const ch = map.indexOf(c);
+      g += `<rect x="${x - 15}" y="${-y - 8}" width="30" height="16" rx="2" fill="none" stroke="${C.dim}" stroke-dasharray="2 1.5" stroke-width=".6"/>` +
+           `<text x="${x}" y="${-y + (y > 0 ? -10.5 : 14)}" font-size="5.5" text-anchor="middle" fill="${C.dim}">${c}${ch >= 0 ? ' · ch' + ch : ''}</text>`;
+    }
+    // hip line + encoder contact, once "Link CoP → leg" has fixed the plate x of the hip
+    if (lg.cop_hip_x_mm != null) {
+      const hx = lg.cop_hip_x_mm;
+      g += `<line x1="${hx}" x2="${hx}" y1="-38" y2="38" stroke="${C.m2}" stroke-width=".8" stroke-dasharray="3 2"/>` +
+           `<text x="${hx}" y="-40" font-size="5" text-anchor="middle" fill="${C.m2}">hip</text>`;
+      const ex = m ? encContactX(m) : null;
+      if (ex != null) g += `<circle cx="${ex}" cy="${p && p[6] != null ? -p[6] : 0}" r="4.5" fill="none" stroke="${C.m1}" stroke-width="1.2"/>`;
+    }
+    // trail: the last 2 s of CoP, older = fainter
+    const tEnd = p ? p[0] : 0, tr = RP.filter(r => r[5] != null && r[0] >= tEnd - 2);
+    for (let i = 1; i < tr.length; i++) {
+      const a = 1 - (tEnd - tr[i][0]) / 2;
+      g += `<line x1="${tr[i-1][5]}" y1="${-tr[i-1][6]}" x2="${tr[i][5]}" y2="${-tr[i][6]}" stroke="${C.z}" stroke-width="1.1" stroke-opacity="${(0.15 + 0.7 * a).toFixed(2)}" stroke-linecap="round"/>`;
+    }
+    const kv = [];
+    if (p && p[5] != null) {
+      const fz = Math.max(p[1], 0), r = Math.min(9, 2.5 + 1.6 * Math.sqrt(fz));
+      g += `<circle cx="${p[5]}" cy="${-p[6]}" r="${r + 3}" fill="${C.z}" fill-opacity=".18"/>` +
+           `<circle cx="${p[5]}" cy="${-p[6]}" r="${r}" fill="${C.z}" stroke="${C.bg || '#0f1115'}" stroke-width="1"/>`;
+      kv.push(['Fz', p[1].toFixed(2) + ' N'], ['CoP x', p[5].toFixed(1) + ' mm'], ['CoP y', p[6].toFixed(1) + ' mm']);
+      if (lg.cop_hip_x_mm != null) {
+        const ex = m ? encContactX(m) : null;
+        kv.push(['ahead of hip', ((lg.cop_dir || 1) * (p[5] - lg.cop_hip_x_mm)).toFixed(1) + ' mm']);
+        if (ex != null) kv.push(['CoP − enc', (p[5] - ex).toFixed(1) + ' mm']);
+      }
+    } else {
+      g += `<text x="0" y="3" font-size="8" text-anchor="middle" fill="${C.dim}">${cal ? 'plate unloaded' : 'no plate_matrix.json'}</text>`;
+      if (p) kv.push(['Fz', p[1].toFixed(2) + ' N']);
+    }
+    if (cal) kv.push(['cal ±', `${(+cal.loo_cop_rms_x_mm).toFixed(1)} / ${(+cal.loo_cop_rms_y_mm).toFixed(1)} mm`]);
+    sv.innerHTML = g;
+    $('topKv').innerHTML = kv.map(([a, b]) => `<div style="color:var(--dim)">${a}</div><div>${b}</div>`).join('');
+  }
+  const amps = m => (m && m.q != null) ? Math.hypot(m.q, m.d || 0) : null;
+  const wrap180 = a => ((a + 180) % 360 + 360) % 360 - 180;
+  const MODES = {0:'STOPPED',1:'FAULT',2:'ENABLING',3:'CALIBRATING',4:'CALIB DONE',
+                 5:'PWM',6:'VOLTAGE',7:'VOLTAGE FOC',8:'VOLTAGE DQ',9:'CURRENT',
+                 10:'POSITION',11:'TIMEOUT',12:'ZERO VELOCITY',13:'STAY WITHIN',
+                 14:'MEASURE IND',15:'BRAKE'};
+  const jn = i => (cfg && cfg.joints && cfg.joints[i]) || null;
+
+  // ---- feed -----------------------------------------------------------------
+  const es = new EventSource('/stream');
+  es.onmessage = e => {
+    const d = JSON.parse(e.data);
+    for (const r of d.plate)
+      if (!P.length || r[0] > P[P.length-1][0]) P.push(r);
+    for (const r of d.motors) {
+      if (M.length && r[0] <= M[M.length-1][0]) continue;   // replayed on reconnect
+      M.push([r[0], r[1]['1'] || {}, r[1]['2'] || {}, r[2] || {}, r[3] || '']);
+    }
+    const last = Math.max(P.length ? P[P.length-1][0] : 0, M.length ? M[M.length-1][0] : 0);
+    if (last) { lastT = Math.max(lastT, last); lastRx = performance.now(); }
+    if (d.status) onStatus(d.status);
+    const keep = lastT - (Math.max(win, 60) + 5);
+    while (P.length && P[0][0] < keep) P.shift();
+    while (M.length && M[0][0] < keep) M.shift();
+  };
+  es.onerror = () => { $('note').textContent = 'stream disconnected — is dash.py running?'; };
+
+  function onStatus(s) {
+    renderHop(s.hop);
+    $('kZ').innerHTML = s.z_ref ? 'cart height (string pot)'
+      : 'cart height <span style="color:var(--warn,#c80)">— click “Cart is … mm”</span>';
+    status = s;
+    cfg = s.cfg;
+    // mode buttons
+    for (const b of $('modeSeg').children) b.classList.toggle('on', b.dataset.mode === s.mode);
+    $('shotbar').style.display = s.mode === 'shot' ? '' : 'none';
+    $('pShot').style.display = s.mode === 'shot' ? '' : 'none';
+    $('lgBand').style.display = s.mode === 'shot' ? 'none' : '';
+
+    const sh = s.shot || {}, armed = sh.state === 'armed';
+    $('force').disabled = !armed;
+    $('disarm').disabled = !armed && sh.state !== 'capturing';
+    const ps = $('pShot');
+    if (sh.state === 'armed')          { ps.textContent = 'ARMED · ' + (sh.why || ''); ps.className = 'pill arm'; }
+    else if (sh.state === 'capturing') { ps.textContent = 'TRIGGERED · capturing'; ps.className = 'pill bad'; }
+    else if (sh.state === 'ready')     { ps.innerHTML = `shot <b>#${sh.ready_id}</b> ready`; ps.className = 'pill ok'; }
+    else                               { ps.textContent = 'not armed'; ps.className = 'pill'; }
+
+    if (sh.state === 'ready' && sh.ready_id != null && sh.ready_id !== shownShot) loadShot(sh.ready_id);
+    renderShotList(s.shots || []);
+
+    // labels that come from the config
+    const j1 = jn(0), j2 = jn(1);
+    if (j1) { $('kA1').textContent = j1.label; $('lgA1').textContent = j1.label; }
+    if (j2) { $('kA2').textContent = j2.label; $('lgA2').textContent = j2.label; }
+
+    // header pills
+    const okPlate = s.plate_age != null && s.plate_age < 1.0;
+    const okMotor = s.motor_age != null && s.motor_age < 1.0;
+    const pl = $('pPlate'), mo = $('pMotor');
+    pl.innerHTML = 'plate: <b>' + (okPlate ? s.plate_hz + ' Hz' :
+        (s.plate_age == null ? 'no feed' : 'stale ' + s.plate_age + 's')) + '</b>' +
+        (s.plate_div === 1 ? ' · full rate' : '') + (s.gaps ? ' · gaps ' + s.gaps : '') +
+        (s.udp_lost ? ' · lost ' + s.udp_lost : '') +
+        (s.plate_off_spread != null ? ' · jitter ±' + (s.plate_off_spread * 1000).toFixed(1) + ' ms' : '');
+    pl.className = 'pill ' + (okPlate ? 'ok' : 'bad');
+    mo.innerHTML = 'motors: <b>' + (okMotor ? s.motor_hz + ' Hz' :
+        (s.motor_age == null ? 'no telemetry' : 'stale ' + s.motor_age + 's')) + '</b>';
+    mo.className = 'pill ' + (okMotor ? 'ok' : 'warn');
+
+    const rc = $('pRec'), btn = $('rec');
+    if (s.recording) {
+      rc.innerHTML = `<b>REC</b> ${s.recording.seconds}s → ${s.recording.file}` +
+                     (s.plate_rec ? '' : ' (plate file not confirmed)');
+      rc.className = 'pill bad'; btn.classList.add('on'); btn.textContent = '■ Stop';
+    } else {
+      rc.innerHTML = s.last_fetch ? `idle · last plate file: <b>${s.last_fetch}</b>` : 'idle';
+      rc.className = 'pill'; btn.classList.remove('on'); btn.textContent = '● Record';
+    }
+
+    const w = $('warns');
+    w.innerHTML = (s.warnings || []).map(t => `<div>⚠ ${t}</div>`).join('')
+      + (s.notes || []).map(t => `<div class="note-row">ℹ ${t}</div>`).join('');
+
+    const n = $('note');
+    if (!okPlate) n.textContent = 'No plate feed. ' + (s.remote ||
+        'Is platelog running on the Pi? (sudo ./plate_setup.sh once per boot, then dash.py restarts it)');
+    else if (!okMotor) n.innerHTML = 'Plate live. For motor traces run ' +
+        '<code>python3 step.py --telemetry 127.0.0.1:9871</code>.';
+    else if (s.mode === 'shot') n.textContent =
+        'One-shot: plate is streaming every sample (' + (s.plate_sps ? s.plate_sps + ' SPS' : 'full rate') +
+        '). Arm, then run the move. Each shot is saved to logs/shot-*.csv.' +
+        (s.motor_hz && s.motor_hz < 200 ? '  Motor telemetry is only ' + s.motor_hz +
+         ' Hz — raise step.py --rate for a hop.' : '');
+    else n.textContent = 'Both feeds live. Record writes logs/merged-<ts>.csv here plus a full-rate ' +
+        'plate-<ts>.csv on the Pi (fetched when you stop).';
+  }
+
+  // ---- one-shot -------------------------------------------------------------
+  const post = (p, body) => fetch(p, {method:'POST', headers:{'Content-Type':'application/json'},
+                                      body: body ? JSON.stringify(body) : undefined})
+    .then(async r => {
+      const j = await r.json().catch(() => ({}));
+      // An HTTP error used to return {error:...}; `j.ok === false` was then
+      // undefined and callers treated it as success, failing silently.
+      if (!r.ok) return {ok: false, why: j.error || ('HTTP ' + r.status)};
+      return (j && typeof j === 'object') ? j : {};
+    })
+    .catch(e => ({ok: false, why: String(e)}));
+
+  function loadShot(id) {
+    fetch('/shot?id=' + id).then(r => r.ok ? r.json() : null).then(s => {
+      if (!s) return;
+      shotData = {
+        info: s,
+        // same row shape as the live arrays, so the chart code is shared
+        P: s.plate.map(r => [r[0], r[1], r[2], r[1], r[1], r[3], r[4]]),
+        M: s.motors.map(r => [r[0], r[1]['1'] || {}, r[1]['2'] || {}, r[2] || {}, r[3] || '']),
+      };
+      shownShot = id; viewShot = true;
+      $('live').style.display = ''; renderStats(s);
+      if ($('rearm').checked) doArm();
+    });
+  }
+
+  function renderStats(s) {
+    const st = s.stats || {}, box = $('stats');
+    const rows = [
+      ['peak Fz', st.fz_peak_N, 'N'], ['at', st.fz_peak_ms, 'ms'],
+      ['baseline Fz', st.fz_base_N, 'N'], ['min Fz', st.fz_min_N, 'N'],
+      ['impulse', st.impulse_Ns, 'N·s'], ['flight', st.flight_ms, 'ms'],
+      ['hop (flight)', st.hop_from_flight_mm, 'mm'], ['z rise', st.z_rise_mm, 'mm'],
+      ['peak A m1', st.m1_peak_amp_A, 'A'], ['peak A m2', st.m2_peak_amp_A, 'A'],
+      ['peak vel m1', st.m1_peak_vel, 'rev/s'], ['peak vel m2', st.m2_peak_vel, 'rev/s'],
+      ['leg travel', st.leg_travel_mm, 'mm'], ['leg @ trig', st.leg_at_trigger_mm, 'mm'],
+      ['bus max', st.bus_max_V, 'V'],
+      ['plate', st.plate_sps, 'SPS'], ['motors', st.motor_hz, 'Hz'],
+    ].filter(r => r[1] != null);
+    box.innerHTML = `<div class="stat" style="grid-column:1/-1"><div class="k">shot #${s.id} · ${s.when} · ${s.why}</div>` +
+      `<div class="v" style="font-size:12px;color:var(--dim)">logs/${s.file || '—'}` +
+      (s.plate_off_spread != null ? ` · plate/motor alignment ±${(s.plate_off_spread*1000).toFixed(1)} ms` : '') +
+      `</div></div>` +
+      rows.map(r => `<div class="stat"><div class="k">${r[0]}</div><div class="v">${r[1]}` +
+                    `<span style="font-size:11px;color:var(--dim)"> ${r[2]}</span></div></div>`).join('');
+    box.style.display = '';
+  }
+
+  function renderShotList(list) {
+    const box = $('shotlist');
+    if (!list.length) { box.innerHTML = ''; return; }
+    box.innerHTML = list.slice().reverse().map(s =>
+      `<button data-id="${s.id}" class="${s.id === shownShot ? 'on' : ''}">#${s.id} ${s.when}` +
+      (s.stats && s.stats.fz_peak_N != null ? ` · ${s.stats.fz_peak_N} N` : '') + `</button>`).join('');
+    for (const b of box.children) b.onclick = () => loadShot(+b.dataset.id);
+  }
+
+  const doArm = () => post('/arm', {pre_ms:+$('pre').value, post_ms:+$('post').value,
+                                    src:$('src').value, level:+$('level').value});
+  $('arm').onclick = () => { viewShot = false; $('live').style.display = 'none'; doArm(); };
+  $('force').onclick = () => post('/trigger');
+  $('disarm').onclick = () => post('/disarm');
+  $('live').onclick = () => { viewShot = false; $('live').style.display = 'none'; };
+  $('src').onchange = () => {
+    const s = $('src').value;
+    $('lvlUnit').textContent = s === 'vel' ? 'rev/s' : 'N';
+    $('level').disabled = (s === 'manual' || s === 'motor_move');
+  };
+  for (const b of $('modeSeg').children)
+    b.onclick = () => { viewShot = false; $('live').style.display = 'none';
+                        post('/mode', {mode:b.dataset.mode}); };
+
+  // ---- controls -------------------------------------------------------------
+  $('rec').onclick = () => post('/record');
+  $('tare').onclick = () => { if (confirm('Re-tare the plate? It must be EMPTY (leg off the plate).')) post('/tare'); };
+  const ikSet = v => { ikTarget = +v; $('ikH').value = v; $('ikHn').value = (+v).toFixed(1); };
+  $('ikH').oninput = e => ikSet(e.target.value);
+  $('ikHn').onchange = e => ikSet(e.target.value);
+  ikSet(240);
+  $('ikLink').onclick = () => {
+    const m = M[M.length - 1], p = P[P.length - 1];
+    const h = m ? legLen(m) : null;
+    if (h == null || !p) { alert('Need both encoder and string-pot data.'); return; }
+    if (!status.z_ref && !confirm('The cart height is not referenced yet ("Cart is … mm"). Link anyway?')) return;
+    const off = +(h - p[2] * 1000).toFixed(1);
+    post('/config', {leg: {cart_to_hip_mm: off}}).then(() => {
+      if (cfg && cfg.leg) cfg.leg.cart_to_hip_mm = off;
+    });
+  };
+  $('copLink').onclick = () => {
+    const m = M[M.length - 1], p = P[P.length - 1], lg = (cfg && cfg.leg) || {};
+    if (!m || !p || p[5] == null) { alert('Need the foot loading the plate (CoP) and encoder data.'); return; }
+    const hip = angAt(m, 0), q2 = angAt(m, 1);
+    if (hip == null || q2 == null) { alert('No joint angles.'); return; }
+    const inc = Math.abs(wrap180(q2 + (lg.knee_offset_deg || 0)));
+    const hx = +(p[5] - (lg.cop_dir || 1) * fkFoot(hip, inc).F[0]).toFixed(1);
+    post('/config', {leg: {cop_hip_x_mm: hx, cop_dir: lg.cop_dir || 1}})
+      .then(() => { if (cfg && cfg.leg) { cfg.leg.cop_hip_x_mm = hx; cfg.leg.cop_dir = lg.cop_dir || 1; } });
+  };
+  $('copFlip').onclick = () => {
+    const lg = (cfg && cfg.leg) || {}, d = -(lg.cop_dir || 1);
+    post('/config', {leg: {cop_dir: d}}).then(() => { if (cfg && cfg.leg) cfg.leg.cop_dir = d; });
+    alert('CoP direction flipped. Press “Link CoP → leg” again with the foot on the plate.');
+  };
+  // ---- hop.py control panel: buttons send hop.py's own key presses
+  document.querySelectorAll('#hopPanel [data-k]').forEach(b => b.onclick = () =>
+    post('/hopkey', {key: b.dataset.k}).then(r => { if (r && r.ok === false) alert('hop.py: ' + r.why); }));
+  function renderHop(h) {
+    const live = !!h;
+    $('hopPanel').classList.toggle('live', live);
+    $('hpOff').style.display = live ? 'none' : '';
+    $('hpOn').style.display = live ? '' : 'none';
+    $('hpPhase').style.display = $('hpCount').style.display = live ? '' : 'none';
+    if (!live) { $('hpStyle').textContent = 'not running'; return; }
+    const drop = h.style === 'drop';
+    $('hpStyle').textContent = drop ? 'style: DROP (landing test)' : 'style: HOP';
+    $('hpPhase').textContent = h.phase;
+    $('hpCount').textContent = `${h.count} done`;
+    const go = $('hpGo');
+    go.textContent = drop ? '▼ DROP' : '▲ HOP';
+    go.disabled = !h.ready;
+    if (h.waiting) $('hpPhase').innerHTML = '<span style="color:var(--warn)">⏳ waiting for <b>y</b> + Enter in the terminal</span>';
+    go.title = h.ready ? '' : 'waiting for the leg to settle in the ' + h.home + ' pose';
+    const rel = h.torque != null;
+    $('hpK1lab').textContent = drop ? 'fold' : rel ? 'torque' : 'velocity';
+    $('hpK1').textContent = drop ? `${h.drop_mm} mm` : rel ? `${h.torque.toFixed(3)} N·m` : `${h.vel.toFixed(2)} rev/s`;
+    $('hpK2').textContent = rel ? `${h.stroke.toFixed(0)} mm` : `${h.accel.toFixed(0)} rev/s²`;
+    $('hpK2lab').textContent = rel ? 'stroke' : 'accel';
+    $('hpAuto').textContent = 'auto: ' + (h.auto ? 'ON' : 'off');
+    $('hpPlan').textContent = h.plan || '';
+    $('hpLast').textContent = h.last ? 'last: ' + h.last : '';
+  }
+  $('cartmm').onclick = () => {
+    const v = prompt('Cart height on the RULER right now, in mm:');
+    if (v == null || v === '') return;
+    post('/cart-mm', {mm: parseFloat(v)}).then(r => {
+      if (!r || r.ok !== true) alert('Cart height: ' + ((r && r.why) || 'failed'));
+    });
+  };
+  $('zeroang').onclick = () => post('/zero-angles').then(r => {
+    if (r && r.ok === false) alert('Zero angles: ' + (r.why || 'failed'));
+  });
+  $('calmm').onclick = () => {
+    const v = prompt('Measure the HIP AXIS to FOOT distance with a tape, in mm,\n' +
+                     'and type it here. Works at any pose — the folded one is easiest.');
+    if (v == null || v === '') return;
+    post('/calib-length', {mm: parseFloat(v)}).then(r => {
+      if (!r || r.ok !== true) { alert('Calibrate failed: ' + ((r && r.why) || 'no response')); return; }
+      alert('Knee offset set to ' + r.offset_deg.toFixed(2) + '° ' +
+            '(included angle ' + r.knee_target_deg + '° here).\n' +
+            'Leg now reads ' + r.len_now_mm + ' mm.\n\n' +
+            'Extend the leg: length must rise toward ' +
+            (2 * ((cfg && cfg.leg && cfg.leg.segment_mm) || 160)
+             + ((cfg && cfg.leg && cfg.leg.foot_offset_mm) || 0)) + ' mm with ' +
+            'hip -> 90° and knee -> 180°. If angles go negative, flip "sign".');
+    });
+  };
+  $('pause').onclick = e => { paused = !paused; e.target.textContent = paused ? 'Resume' : 'Pause'; };
+  $('win').onchange = e => { win = +e.target.value; };
+
+  // ---- charts ---------------------------------------------------------------
+  const charts = {};
+  for (const id of ['cFz','cZ','cCoP','cAng','cVel','cTq','cAmp','cV']) {
+    const cv = $(id);
+    charts[id] = {cv, ctx: cv.getContext('2d')};
+    cv.addEventListener('mousemove', ev => {
+      if (!geom) return;
+      const r = cv.getBoundingClientRect(), px = ev.clientX - r.left;
+      const {L, w, x0, x1} = geom;
+      cursor = (px < L || px > L + w) ? null : x0 + (px - L) / w * (x1 - x0);
+    });
+    cv.addEventListener('mouseleave', () => { cursor = null; });
+  }
+
+  function niceStep(range, target) {
+    const raw = range / target, p = Math.pow(10, Math.floor(Math.log10(raw))), r = raw / p;
+    return (r < 1.5 ? 1 : r < 3.5 ? 2 : r < 7.5 ? 5 : 10) * p;
+  }
+  const fmt = (v, step) => v.toFixed(Math.max(0, Math.min(4, -Math.floor(Math.log10(step || 1)))));
+
+  // series: {color, pts:[[x,y],…], band?, dash?, width?, label?}
+  function draw(ch, series, xd, opts = {}) {
+    const {cv, ctx} = ch, dpr = window.devicePixelRatio || 1;
+    const W = cv.clientWidth, H = cv.clientHeight;
+    if (cv.width !== W * dpr || cv.height !== H * dpr) { cv.width = W * dpr; cv.height = H * dpr; }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    const L = 60, R = 26, T = 26, B = 22, w = W - L - R, h = H - T - B;
+    geom = {L, w, x0: xd.x0, x1: xd.x1};
+
+    let lo = Infinity, hi = -Infinity;
+    for (const s of series) for (const pt of s.pts) {
+      if (pt[0] < xd.x0 || pt[0] > xd.x1) continue;
+      for (let k = 1; k < pt.length; k++) {
+        const v = pt[k]; if (v == null || isNaN(v)) continue;
+        if (v < lo) lo = v; if (v > hi) hi = v;
+      }
+    }
+    // The limit lines are NOT folded into the y-range: forcing +-9 A onto every
+    // frame would flatten the 0.2 A idle trace.  They appear once you get near them.
+    for (const v of (opts.include || [])) { lo = Math.min(lo, v); hi = Math.max(hi, v); }
+    if (!isFinite(lo)) { lo = -1; hi = 1; }
+    if (opts.zero !== false) { lo = Math.min(lo, 0); hi = Math.max(hi, 0); }
+    const pad = (hi - lo) * 0.08 || 0.5; lo -= pad; hi += pad;
+    if (hi - lo < (opts.minSpan || 0)) { const c = (hi + lo) / 2; lo = c - opts.minSpan/2; hi = c + opts.minSpan/2; }
+    const X = t => L + (t - xd.x0) / (xd.x1 - xd.x0) * w, Y = v => T + (hi - v) / (hi - lo) * h;
+
+    ctx.strokeStyle = C.line; ctx.lineWidth = 1; ctx.fillStyle = C.dim;
+    ctx.font = '11px ui-monospace, Menlo, Consolas, monospace';
+    const ys = niceStep(hi - lo, 4);
+    for (let v = Math.ceil(lo / ys) * ys; v <= hi; v += ys) {
+      const y = Math.round(Y(v)) + .5;
+      ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(L + w, y); ctx.stroke();
+      ctx.textAlign = 'right'; ctx.fillText(fmt(v, ys), L - 6, y + 4);
+    }
+    for (const tk of xd.ticks) {
+      const x = Math.round(X(tk.x)) + .5;
+      ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, T + h); ctx.stroke();
+      ctx.textAlign = 'center'; ctx.fillText(tk.label, x, H - 7);
+    }
+    if (lo < 0 && hi > 0) {
+      ctx.strokeStyle = C.dim; const y = Math.round(Y(0)) + .5;
+      ctx.beginPath(); ctx.moveTo(L, y); ctx.lineTo(L + w, y); ctx.stroke();
+    }
+    for (const y of (opts.hlines || [])) {                 // current limits etc.
+      ctx.strokeStyle = y.color; ctx.setLineDash([3, 3]); ctx.lineWidth = 1;
+      for (const v of (y.both === false ? [y.v] : [y.v, -y.v])) {
+        if (v < lo || v > hi) continue;
+        const yy = Math.round(Y(v)) + .5;
+        ctx.beginPath(); ctx.moveTo(L, yy); ctx.lineTo(L + w, yy); ctx.stroke();
+      }
+      ctx.setLineDash([]);
+    }
+    if (xd.zeroLine && 0 >= xd.x0 && 0 <= xd.x1) {         // the trigger instant
+      ctx.strokeStyle = C.arm; ctx.lineWidth = 1.2;
+      const x = Math.round(X(0)) + .5;
+      ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, T + h); ctx.stroke();
+    }
+
+    ctx.save(); ctx.beginPath(); ctx.rect(L, T, w, h); ctx.clip();
+    for (const s of series) {
+      if (s.band) {                        // min/max envelope: pts [x, lo, hi]
+        ctx.fillStyle = s.color; ctx.globalAlpha = .25; ctx.beginPath();
+        let started = false;
+        for (const p of s.pts) { if (p[0] < xd.x0 || p[0] > xd.x1) continue;
+          const x = X(p[0]); if (!started) { ctx.moveTo(x, Y(p[2])); started = true; } else ctx.lineTo(x, Y(p[2])); }
+        for (let i = s.pts.length - 1; i >= 0; i--) { const p = s.pts[i];
+          if (p[0] < xd.x0 || p[0] > xd.x1) continue; ctx.lineTo(X(p[0]), Y(p[1])); }
+        ctx.closePath(); ctx.fill(); ctx.globalAlpha = 1; continue;
+      }
+      ctx.strokeStyle = s.color; ctx.lineWidth = s.width || 1.6;
+      ctx.setLineDash(s.dash || []);
+      ctx.beginPath(); let pen = false;
+      for (const p of s.pts) {
+        if (p[0] < xd.x0 || p[0] > xd.x1) continue;
+        const v = p[1];
+        if (v == null || isNaN(v)) { pen = false; continue; }
+        const x = X(p[0]), y = Y(v);
+        if (!pen) { ctx.moveTo(x, y); pen = true; } else ctx.lineTo(x, y);
+      }
+      ctx.stroke(); ctx.setLineDash([]);
+    }
+    ctx.restore();
+
+    // right-edge current values, or the values under the cursor
+    const atCursor = cursor != null && cursor >= xd.x0 && cursor <= xd.x1;
+    if (atCursor) {
+      ctx.strokeStyle = C.fg; ctx.globalAlpha = .35; ctx.lineWidth = 1;
+      const x = Math.round(X(cursor)) + .5;
+      ctx.beginPath(); ctx.moveTo(x, T); ctx.lineTo(x, T + h); ctx.stroke(); ctx.globalAlpha = 1;
+    }
+    ctx.textAlign = 'right'; ctx.font = '12px ui-monospace, Menlo, Consolas, monospace';
+    let ly = T + 12;
+    for (const s of series) {
+      if (s.band || !s.pts.length) continue;
+      let v = null;
+      if (atCursor) {
+        let best = Infinity;
+        for (const p of s.pts) { const d = Math.abs(p[0] - cursor); if (d < best) { best = d; v = p[1]; } }
+      } else {
+        for (let i = s.pts.length - 1; i >= 0; i--) if (s.pts[i][1] != null) { v = s.pts[i][1]; break; }
+      }
+      if (v == null || isNaN(v)) continue;
+      ctx.fillStyle = s.color; ctx.fillText(fmt(v, ys / 20), L + w - 4, ly); ly += 14;
+    }
+    if (atCursor) {
+      ctx.fillStyle = C.dim; ctx.textAlign = 'left';
+      ctx.fillText(xd.cursorLabel(cursor), L + 4, T + 12);
+    }
+  }
+
+  // ---- frame ----------------------------------------------------------------
+  const col = (arr, i, k, f) => arr.map(r => [r[0], r[i] && r[i][k] != null ? (f ? f(r[i][k]) : r[i][k]) : null]);
+
+  function frame() {
+    const shot = viewShot && shotData;
+    const rows = shot ? shotData : {P, M};
+    let xd;
+    if (shot) {
+      const a = shotData.info.arm;
+      const x0 = -a.pre_ms, x1 = a.post_ms, step = niceStep(x1 - x0, 7);
+      const ticks = [];
+      for (let v = Math.ceil(x0 / step) * step; v <= x1; v += step)
+        ticks.push({x: v, label: (v > 0 ? '+' : '') + fmt(v, step) + (v === 0 ? '' : '')});
+      xd = {x0, x1, ticks, zeroLine: true,
+            cursorLabel: t => (t > 0 ? '+' : '') + t.toFixed(1) + ' ms'};
+    } else {
+      if (paused || !lastT) { requestAnimationFrame(frame); return; }
+      const tNow = lastT + (performance.now() - lastRx) / 1000;
+      const xs = win <= 2 ? 0.5 : win <= 5 ? 1 : win <= 10 ? 2 : win <= 20 ? 5 : 10;
+      const ticks = [];
+      for (let s = xs; s <= win; s += xs) ticks.push({x: tNow - s, label: '-' + s + 's'});
+      xd = {x0: tNow - win, x1: tNow, ticks, zeroLine: false,
+            cursorLabel: t => (t - tNow).toFixed(2) + ' s'};
+    }
+
+    const RP = rows.P, RM = rows.M, L = (cfg && cfg.limits) || {};
+    const j1 = jn(0), j2 = jn(1);
+    draw(charts.cFz, [
+      ...(shot ? [] : [{band:true, color:C.fz, pts:RP.map(r => [r[0], r[3], r[4]])}]),
+      {color:C.fz, pts:RP.map(r => [r[0], r[1]])}], xd, {minSpan:1});
+    draw(charts.cZ, [{color:C.z, pts:RP.map(r => [r[0], r[2] * 1000])},
+                     {color:C.m1, pts:RM.map(r => [r[0], legLen(r)])}],
+         xd, {minSpan:2, zero:false});
+    // Centre of pressure in the plate frame, and -- once "Link CoP → leg" has been
+    // pressed -- where the encoders say the ball touches, mapped into the same frame.
+    const lgc = (cfg && cfg.leg) || {}, linked = lgc.cop_hip_x_mm != null;
+    $('lgCoPenc').style.display = linked ? '' : 'none';
+    draw(charts.cCoP, [{color:C.z, pts:RP.map(r => [r[0], r[5]])},
+                       {color:C.cmd, pts:RP.map(r => [r[0], r[6]])},
+                       ...(linked ? [{color:C.m1, dash:[5, 4], pts:RM.map(r => [r[0], encContactX(r)])}] : [])],
+         xd, {minSpan:10});
+    draw(charts.cAng, [
+      {color:C.cmd, dash:[4,4], width:1, pts:RM.map(r => [r[0], cmdAt(r, 0)])},
+      {color:C.cmd, dash:[4,4], width:1, pts:RM.map(r => [r[0], cmdAt(r, 1)])},
+      {color:C.m1, pts:RM.map(r => [r[0], angAt(r, 0)])},
+      {color:C.m2, pts:RM.map(r => [r[0], angAt(r, 1)])}], xd, {zero:false, minSpan:5});
+    draw(charts.cVel, [{color:C.m1, pts:col(RM,1,'vel')}, {color:C.m2, pts:col(RM,2,'vel')}], xd, {minSpan:1});
+    draw(charts.cTq,  [{color:C.m1, pts:col(RM,1,'tq')},  {color:C.m2, pts:col(RM,2,'tq')}],  xd, {minSpan:.2});
+    draw(charts.cAmp, [{color:C.m1, pts:RM.map(r => [r[0], amps(r[1])])},
+                       {color:C.m2, pts:RM.map(r => [r[0], amps(r[2])])}], xd,
+         {minSpan:2, hlines: L.max_current_A ? [{v:L.warn_current_A, color:'#a16207'},
+                                                {v:L.max_current_A, color:C.lim}] : []});
+    // Bus voltage against the two thresholds, both always in view: regen has
+    // nowhere to go but this trace, and max_voltage is a fault, not a warning.
+    const brake = (L.max_voltage_V || 25) - (L.flux_brake_margin_V || 3);
+    draw(charts.cV, [{color:C.z, pts:RM.map(r => [r[0], r[1].volt != null ? r[1].volt : r[2].volt])}],
+         xd, {zero:false, minSpan:1, include:[brake, L.max_voltage_V],
+              hlines:[{v:brake, color:'#a16207', both:false},
+                      {v:L.max_voltage_V, color:C.lim, both:false}]});
+
+    // ---- tiles.  Live: the newest sample.  Frozen shot: whatever the cursor is
+    // over, or the trigger instant -- "the last row of the window" means nothing.
+    const at = shot ? (cursor != null ? cursor : 0) : null;
+    const near = arr => { let best = Infinity, r = null;
+      for (const x of arr) { const d = Math.abs(x[0] - at); if (d < best) { best = d; r = x; } }
+      return r; };
+    const p = at == null ? RP[RP.length-1] : near(RP);
+    const m = at == null ? RM[RM.length-1] : near(RM);
+    $('kFz').textContent = at == null ? 'Fz'
+        : 'Fz @ ' + (at > 0 ? '+' : '') + at.toFixed(1) + ' ms';
+    const set = (id, v, d) => { const el = $(id), u = el.querySelector('.u');
+      el.textContent = (v == null || isNaN(v)) ? '—' : v.toFixed(d); if (u) el.appendChild(u); };
+    const flag = (id, v, warn, bad) => { const el = $(id);
+      el.className = 'tile' + (v == null ? '' : v >= bad ? ' bad' : v >= warn ? ' hot' : ''); };
+    if (p) {
+      set('tFz', p[1], 2); set('tZ', p[2] * 1000, 1);
+      $('tCoP').textContent = (p[5] == null) ? (status.cop_cal ? 'unloaded' : 'no cal')
+                              : `${p[5].toFixed(1)}, ${p[6].toFixed(1)}`;
+      let pk = -Infinity;
+      for (const r of RP) if (r[0] >= xd.x0 && r[4] > pk) pk = r[4];
+      set('tPk', isFinite(pk) ? pk : null, 2);
+    }
+    if (m) {
+      set('tA1', angAt(m, 0), 2); set('tA2', angAt(m, 1), 2);
+      set('tLen', legLen(m), 1);
+      set('tT1', m[1].tq, 3); set('tT2', m[2].tq, 3);
+      const a1 = amps(m[1]), a2 = amps(m[2]);
+      set('tI1', a1, 2); set('tI2', a2, 2);
+      flag('cell1', a1, L.warn_current_A, L.max_current_A);
+      flag('cell2', a2, L.warn_current_A, L.max_current_A);
+      // Are the FETs actually driving?  In STOPPED the q/d readings are just the
+      // current-sense zero offset (a few hundred mA, drifts with temperature),
+      // so they must not be read as real current.
+      const md = [m[1].mode, m[2].mode];
+      const nm = x => (x == null ? '—' : (MODES[x] || ('mode ' + x)));
+      $('tMode').textContent = md[0] === md[1] ? nm(md[0]) : nm(md[0]) + ' / ' + nm(md[1]);
+      const off = md.every(x => x === 0);
+      const bad = md.some(x => x === 1 || x === 11);
+      $('cellMode').className = 'tile' + (bad ? ' bad' : off ? '' : ' hot');
+      for (const id of ['tI1', 'tI2']) $(id).style.opacity = off ? 0.45 : 1;
+      for (const id of ['cell1', 'cell2'])
+        $(id).title = off ? 'FETs are off (mode STOPPED) — this is current-sense offset, '
+                          + 'not real current' : '';
+      const volt = m[1].volt != null ? m[1].volt : m[2].volt;
+      set('tV', volt, 1);
+      flag('cellV', volt, (L.max_voltage_V || 25) - (L.flux_brake_margin_V || 3), L.max_voltage_V);
+      const tmp = Math.max(m[1].temp || 0, m[2].temp || 0) || null;
+      set('tTemp', tmp, 1);
+      flag('cellT', tmp, L.warn_temperature_C, L.fault_temperature_C);
+      $('tSt').textContent = (shot ? (m[4] || '—') : (status.motor_state || m[4] || '—'));
+    }
+    drawIK(m, p);
+    if (FAKECOP) {   // dash.html?fakecop: a made-up 5 N load circling the plate, to preview the view
+      const FR = RP.map(r => [r[0], 5.2, r[2], r[3], r[4], 35 + 25 * Math.sin(r[0] * 2), 6 * Math.cos(r[0] * 2)]);
+      drawTop(FR, m, FR[FR.length - 1]);
+    } else drawTop(RP, m, p);
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+  $('src').onchange();
+})();
+</script>
+</body>
+</html>

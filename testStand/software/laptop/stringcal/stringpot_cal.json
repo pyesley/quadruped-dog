@@ -1,0 +1,128 @@
+{
+ "_comment": "String pot: y_mm = sqrt(alpha*(n + N0)^2 + k), n = count since the reader started. N0 is only valid if counting starts where it did during calibration; otherwise pass the starting ruler height (y0) and N0 is re-solved: N0 = sqrt((y0^2 - k)/alpha) - n0.",
+ "alpha_mm2_per_count2": 0.002040728237226057,
+ "k_mm2": 4209.828777160025,
+ "N0_counts": 666.8762652347292,
+ "sd": {
+  "alpha": 1.9655392165317402e-05,
+  "k": 859.8008825345943,
+  "N0": 67.81749268181649
+ },
+ "rms_mm": 1.0662436261496124,
+ "max_mm": 3.0437468042149476,
+ "line_rms_mm": 1.505249978863868,
+ "range_mm": [
+  160.0,
+  570.0
+ ],
+ "encoder": {
+  "pins": "GPIO5/6",
+  "overlay": "rotary-encoder steps-per-period=4"
+ },
+ "date": "2026-10-03",
+ "points_used": 25,
+ "points_dropped_moving": 4,
+ "points": [
+  [
+   3041,
+   180.0
+  ],
+  [
+   2581,
+   160.0
+  ],
+  [
+   2581,
+   160.0
+  ],
+  [
+   4203,
+   230.0
+  ],
+  [
+   4893,
+   260.0
+  ],
+  [
+   5355,
+   280.0
+  ],
+  [
+   5827,
+   300.0
+  ],
+  [
+   7167,
+   360.0
+  ],
+  [
+   6731,
+   340.0
+  ],
+  [
+   8052,
+   400.0
+  ],
+  [
+   9370,
+   460.0
+  ],
+  [
+   9798,
+   480.0
+  ],
+  [
+   10325,
+   500.0
+  ],
+  [
+   10984,
+   530.0
+  ],
+  [
+   11650,
+   560.0
+  ],
+  [
+   11870,
+   570.0
+  ],
+  [
+   10326,
+   500.0
+  ],
+  [
+   9624,
+   470.0
+  ],
+  [
+   8587,
+   420.0
+  ],
+  [
+   7416,
+   370.0
+  ],
+  [
+   6519,
+   330.0
+  ],
+  [
+   5832,
+   300.0
+  ],
+  [
+   4895,
+   260.0
+  ],
+  [
+   4201,
+   230.0
+  ],
+  [
+   5593,
+   290.0
+  ]
+ ],
+ "units_note": "ruler was read in whole CENTIMETRES on 2026-10-03; converted to mm (x10)"
+}
