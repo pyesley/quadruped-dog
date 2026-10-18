@@ -52,6 +52,27 @@ pushes; the clamp (blue LED) brakes at ~26.4 V.
   folded hard stop). Which is wrong is unresolved -- matters for the sim.
 - Plate overload: user is not worried (cells look sturdy) -- don't keep warning.
 
+**Plate dropout late on 2026-10-17 (fixed)**
+- During the hard hops the ADC lost its registers 202 times, then stopped answering completely
+  (`platelog`: "ADS131 not answering (MODE never read 0x0510)"). Cause: **a jumper wire between the Pi and
+  the ADC board had been pulled loose** -- the stand shakes on hard landings. Re-seating it fixed it.
+  **To do: strain-relieve / secure the ADC wiring.**
+- Quick diagnosis on the Pi (no sudo): sample the clock pin, `for i in $(seq 20); do pinctrl lev 4; done`
+  (a mix of 0 and 1 = CLKIN toggling). Then a raw SPI probe of the ADC:
+  ```
+  python3 -c "
+  import spidev,time; s=spidev.SpiDev(); s.open(0,0); s.mode=1; s.max_speed_hz=1000000
+  fr=lambda c=0: bytes(s.xfer2([(c>>8)&255,c&255,0]+[0]*27)); fr(0x11); time.sleep(.01)
+  print([fr().hex()[:12] for _ in range(3)])"
+  ```
+  **All `ff` = nothing drives MISO** (board unpowered, or the CS / MISO wire is off) -> check wiring.
+  Real status words (e.g. `05ff0000...`) = the chip is alive.
+- After ANY Pi reboot: `sudo ~/scale/plate_setup.sh`, then restart `dash.py` (it starts platelog).
+- `plate_setup.sh` now **always** programs the 8.065 MHz ADC clock: after a reboot GPIO4 could already read
+  as GPCLK0 without running at the right frequency, and the old check skipped `clkin.py`. It leaves the clock
+  alone while platelog is running (reprogramming pauses it).
+- Dashboard defaults changed: one-shot post-trigger window 1500 ms (was 600); trigger = motor move.
+
 **Next project: MuJoCo model of the stand** (plan agreed, not started): slider + hip + knee + foot sphere on a
 force plate; actuator model with 12 A clamp, back-EMF limit, rotor inertia x81 as `armature`, friction; moteus
 PD + planner + hop.py phases. System ID by replaying logged currents and comparing Fz / joints, then predict an
