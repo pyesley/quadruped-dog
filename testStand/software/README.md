@@ -68,8 +68,9 @@ Other tools: `python3 hop.py --teach crouch|land|push` (motors limp, set the pos
 
 ## Rules
 
-- **Never write configuration to the moteus controllers** (`conf set`, `conf write`, `moteus_tool --write-config`,
-  `--zero-offset`) without Dad. Reading (`--dump-config`, queries) is fine.
+- **Never write configuration to the moteus-c1 controllers** (`conf set`, `conf write`, `moteus_tool --write-config`,
+  `--zero-offset`) without Dad. Only a human does this, never Claude Code or a script: a wrong limit, offset or
+  gain can drive the leg out of bounds or over-current the motors. Reading (`--dump-config`, queries) is fine.
 - Only one program may use `/dev/ttyACM0` at a time (don't run `moteus_tool` while `hop.py` is running).
 - Judge hop height by **flight time on the plate**, not by the string pot (it loses counts at hop speeds).
 - Board temperature: the controllers derate above 50 °C; let them cool below ~45 °C between sets.
